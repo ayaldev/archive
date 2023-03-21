@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>VRChat Genius</title>
+<style>
+@import url('https://fonts.googleapis.com/css?family=Dosis:600');
+
+html, body, div {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  font-size: 100px;
+  font-family: 'Dosis', sans-serif;
+  vertical-align: baseline;
+  text-align: center;
+  box-sizing: border-box;
+  background: transparent;
+  width: 100%;
+}
+input {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  font-size: 100px;
+  font-family: 'Dosis', sans-serif;
+  vertical-align: baseline;
+  text-align: center;
+  box-sizing: border-box;
+  border-radius: 25px;
+  background: white;
+  width: 99%;
+}
+}
+</style>
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script>
+$(function() {
+  var input = $('#input');
+  var logs = $('#logs');
+
+  var keys = {
+    BS: function() {
+      input.val(input.val().slice(0, -1));
+    },
+    ENT: function() {
+      var log = $('<div>').text(input.val());
+      logs.append(log);
+      input.val('');
+    }
+  };
+
+  window.key = function(key) {
+    location.hash = '#' + Math.random();
+    if (keys[key]) {
+      keys[key]();
+    } else {
+      input.val(input.val() + key);
+    }
+  };
+});
+</script>
+</head>
+<body>
+<input id="input" type="text" maxlength="15" placeholder="click me" autofocus/>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <script type="text/javascript" src="d3.v3.min.js"></script>
+    <script type="text/javascript" src="jquery.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/purecss@0.6.0/build/pure-min.css">
+    <title>d3test</title>
+    <style>
+        ul,li {margin: 0;padding: 0;list-style:none;}
+    
+        #result section {margin: 5px; height:20px;}
+        #result div {background: #aaf; display: inline-block; height:100%; text-align: right;}
+        #result p {display: inline-block; width: 100px; margin: 0; vertical-align: top}
+        
+        #param {position: relative;}
+        #param>label {margin-top: 1em;}
+        
+        .navi{position:absolute;width:60px;top: 0;}
+        
+        input[type=radio]:checked+button{
+            background: rgb(28, 184, 65);   
+        }
+    </style>
+</head>
+<body>
+    <div id="result">
+    </div>
+    <button id="add">追加</button><p>ヒューリースタンス</p>
+<label for="test"><input type="radio" id="test" value="0"> <span class="pure-button pure-button-primary">0</span></label>
+<label><input type="radio" value="1"> <button class="pure-button pure-button-primary">1</button></label>
+<label><input type="radio" value="2"> <button class="pure-button pure-button-primary">2</button></label><label><input type="radio" value="3"> <button class="pure-button pure-button-primary">3</button></label><label><input type="radio" value="4"> <button class="pure-button pure-button-primary">4</button></label><label><input type="radio" value="5"> <button class="pure-button pure-button-primary">5</button></label><label><input type="radio" value="6"> <button class="pure-button pure-button-primary">6</button></label><label><input type="radio" value="7"> <button class="pure-button pure-button-primary">7</button></label><label><input type="radio" value="8"> <button class="pure-button pure-button-primary">8</button></label><label><input type="radio" value="9"> <button class="pure-button pure-button-primary">9</button></label><label><input type="radio" value="10"> <button class="pure-button pure-button-primary">10</button></label>
+    <script type="text/javascript" src="d3test.js"></script>
+    <script type="text/javascript" src="vue.v2.min.js"></script>
+    <script type="text/javascript" src="vueeltest.js"></script>
+
+<label><input value="3" name="threshold" type="radio" /> 3users</label>
+<label><input value="5" name="threshold" type="radio" /> 5users</label></body></html>

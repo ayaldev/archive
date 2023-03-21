@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="jp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <script type="text/javascript" src="jquery.js"></script>
+    <script type="text/javascript" src="vue.js"></script>
+    <script type="text/javascript" src="d3.v3.min.js"></script> 
+    <title>PSO2ダメージシミュ</title>
+</head>
+<body>
+    <div id="wrap">
+        <section id="result">
+        </section>
+        <dl id="parameters">
+            <dt>パラメータ合計</dt>
+            <dd id="param">
+                <ul>
+                    <li>
+                        ・最終攻撃力<input type="text" v-model="p_atk" id="p_atk">
+                    </li>
+                    <li>
+                        ・防御力<input type="text" v-model="e_def" id="e_def">
+                    </li>
+                    <li>
+                        ・対応する部位倍率<input type="text" v-model="e_p_r" id="e_p_r">
+                    </li>
+                    <li>
+                        ・武器攻撃力<input type="text" v-model="w_atk" id="w_atk">
+                    </li>
+                    <li>
+                        ・武器属性値<input type="text" v-model="w_el" id="w_el">
+                    </li>
+                    <li>
+                        ・属性部位倍率<input type="text" v-model="e_el_r" id="e_el_r">
+                    </li>
+                    <li>
+                        ・スキル、潜在倍率、PA倍率<input type="text" v-model="p_r" id="p_r">
+                    </li>
+                    <li>
+                        ・クリティカル倍率<input type="text" v-model="p_crc_r" id="p_crc_r">
+                    </li>
+                    <li>
+                        ・プレイヤー技量<input type="text" v-model="p_dex" id="p_dex">
+                    </li>
+                    <li>
+                        ・PAの技量補正<input type="text" v-model="pa_dex_r" id="pa_dex_r">
+                    </li>
+                    <li>
+                        ・エネミー技量<input type="text" v-model="e_dex" id="e_dex">
+                    </li>
+                    <li>
+                        ・武器レアリティ
+                        <select v-model="w_rarity" id="w_rarity">
+                            <option v-for="n in 13" value="{{n+1}}">{{n+1}}</option>
+                        </select>{{w_rarity}}
+                    </li>
+                    <li>
+                        ・武器強化値
+                        <select v-model="w_plus" id="w_plus">
+                            <option v-for="n in 10" value="{{n+1}}">{{n+1}}</option>
+                        </select>{{w_plus}}
+                    </li>
+                    <li>
+                        ・ブレ種類
+                        <select v-model="w_b_type" id="w_b_type">
+                            <option value="0">ふつう</option>
+                            <option value="1">ｽﾃｨｸﾗﾌﾄ以下</option>
+                            <option value="2">ｼﾙﾊﾞｸﾗﾌﾄ以上(TD,DS,ｶﾞﾝｽﾗ)</option>
+                            <option value="3">ｼﾙﾊﾞｸﾗﾌﾄ以上(その他)</option>
+                            <option value="4">インヴェイド</option>
+                            <option value="5">ペット</option>
+                        </select>{{w_b_type}}
+                    </li>
+                </ul>
+                <h3>計算結果</h3>
+                最大ダメージ<span>{{max}}</span><br>
+                最小ダメージ<span>{{min}}</span><br>
+                期待値<span>{{mean}}</span>
+                
+            </dd>
+        </dl>
+        <button id="add">データを末尾に追加し先頭データを削除</button>
+    </div>
+    <script type="text/javascript" src="calc.js"></script>
+</body>
+</html>
+

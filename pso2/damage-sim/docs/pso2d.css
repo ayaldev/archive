@@ -1,0 +1,61 @@
+@charset "utf-8";
+
+* {-webkit-box-sizing: border-box;
+-moz-box-sizing: border-box;
+box-sizing: border-box;}
+
+ul,li,h4 {margin: 0;padding: 0;list-style:none;}
+#result {width:840px;}
+#result section {margin: 5px; height:32px;}
+#result button {vertical-align:middle;}
+#result div {display: inline-block; height:100%; text-align: right;vertical-align: top;}
+#result p {display: inline-block; width: 100px; margin: 0; vertical-align: middle;white-space:nowrap;}
+
+#result div.min {background: #aaf;}
+#result div.max {background: #faa;}
+
+#param {position: relative;width: 700px;padding-top: 33px;}
+#param>label {margin-top: 1em;}
+.skill {margin:0.5em;display: block;}
+
+label>input{display: none;}
+.skill_visible~label{display: none;width: 600px;}
+.skill_visible:checked~label{display: inline-block;}
+.skill_visible:checked+strong{
+    background: rgb(66, 184, 221);
+}
+
+.navi{
+    position:absolute;width:60px;top: 0;
+    height: 36px;text-align: center;
+    border-top:#ccc 3px solid;z-index: 10;
+}
+
+.navi~label{
+    border:#ccc 3px solid;
+    position:relative;
+    z-index: 2;
+    background: #f9f9f9;
+}
+
+input:checked+span{
+    background: rgb(66, 184, 221);
+}
+
+.pure-button {
+    border-radius: 4px;
+    padding: .5em 0.9em;
+}
+
+h3 {background: #fff;padding:12px;font-size: 2em;margin:0;}
+h3>span{font-size: 0.5em;display: inline-block;margin-top:20px;float: right;}
+h3+div{padding:12px;}
+
+h4 {padding: 3px;}
+
+.range-text input[type="range"]{width:72%;margin-right:10px;}
+.range-text input[type="text"]{width:12%;text-align: right; padding-right:3px;}
+.range-text select{width:12%;padding:0;}
+
+.skillef {padding-left:5px;color:#00f;}
+.g-field {display: inline-block;vertical-align:top;}

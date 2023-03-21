@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="jp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <script type="text/javascript" src="jquery.js"></script>
+    <script type="text/javascript" src="angular.js"></script>
+    <script type="text/javascript" src="skills.js"></script>
+    <script type="text/javascript" src="d3.js"></script>
+    <link href="style.css" rel="stylesheet" type="text/css">
+    <title>PSO2ダメージシミュ</title>
+</head>
+<body onload="test()">
+    <div id="wrap">
+        <div id="result" style="height:300px;">結果はここらへん
+            <button type=button onclick="nazo()">謎倍率</button>
+        </div>
+        <div id="conditions">
+            <ul id="skills">
+                <li id="common" class="class">
+                    <label for="common_ch" class="class_ch">
+                        <input id="common_ch" type="checkbox" checked disabled>
+                        <em style="left:0px;">共通</em>
+                        <ul id="common_skills" class="class_skills">
+                            <li>
+                                <h3>設定</h3>
+                                <em>タイプ</em>
+                                <label class="skill_ch">
+                                    <input name="common_attacktype" type="radio" value="melee" class="skill_level" checked>
+                                    <em>打撃</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_attacktype" type="radio" value="ranged" class="skill_level">
+                                    <em>射撃</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_attacktype" type="radio" value="pet" class="skill_level">
+                                    <em>ペット</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_attacktype" type="radio" value="technic" class="skill_level">
+                                    <em>テク</em>
+                                </label>
+                                <em>謎倍率</em>
+                                <label class="skill_ch">
+                                    <input name="common_nazorate" type="radio" value="1.00" class="skill_level">
+                                    <em>なし</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_nazorate" type="radio" value="1.05" class="skill_level" checked>
+                                    <em>あり</em>
+                                </label>
+                            </li>
+                            <li>
+                                <hr>
+                                プレイヤー
+                                <h3>素手攻撃力</h3>
+                                <input type="range" value="1300" id="rg_bare_atk" step="1" max="4000" min="400">
+                                <input type="textbox" value="1300" id="bare_atk" class="help_attack">
+                                <label for="help_atk" class="help_attack">
+                                    <h3 class="accordion">攻撃力入力補助</h3>
+                                    <input type="checkbox" id="help_atk" class="help">
+                                    <div>
+                                        <h4>種族、クラス<span style="font-size:10px;">&nbsp;&nbsp;&nbsp;&nbsp;(´・ω・｀)誤差あるよ、ごめんね。。。計算式募集！</span></h4>
+                                        <section>
+                                            <em>種族</em>
+                                            <select id="help_arkstype" class="help_arksstatus">
+                                                <option value="0">ﾋｭｰﾏﾝ</option>
+                                                <option value="2">ﾆｭｰﾏﾝ</option>
+                                                <option value="4">ｷｬｽﾄ</option>
+                                                <option value="6">ﾃﾞｭｰﾏﾝ</option>
+                                            </select>
+                                            <em>性別</em>
+                                            <select id="help_arkssex" class="help_arksstatus">
+                                                <option value="0">男</option>
+                                                <option value="1">女</option>
+                                            </select>
+                                            <em>ﾒｲﾝ</em>
+                                            <select id="help_mainclass" class="help_arksstatus">
+                                                <option value="0">Hu</option>
+                                                <option value="1">Fi</option>
+                                                <option value="2">Ra</option>
+                                                <option value="3">Gu</option>
+                                                <option value="4">Fo</option>
+                                                <option value="5">Te</option>
+                                                <option value="6">Br</option>
+                                                <option value="7">Bo</option>
+                                                <option value="8">Su</option>
+                                            </select>
+                                            <em>ｻﾌﾞ</em>
+                                            <select id="help_subclass" class="help_arksstatus">
+                                                <option value="0">Hu</option>
+                                                <option value="1" selected>Fi</option>
+                                                <option value="2">Ra</option>
+                                                <option value="3">Gu</option>
+                                                <option value="4">Fo</option>
+                                                <option value="5">Te</option>
+                                                <option value="6">Br</option>
+                                                <option value="7">Bo</option>
+                                                <option value="8">Su</option>
+                                            </select>
+                                        </section>
+                                        <input type="textbox" value="10" id="help_arksstatus">
+                                        <h4>ステUP1（またはペットのプラス値）</h4>
+                                        <input type="range" value="10" id="rg_help_statusup1" step="1" max="75" min="0">
+                                        <input type="textbox" value="10" id="help_statusup1">
+                                        <h4>ステUP2</h4>
+                                        <input type="range" value="0" id="rg_help_statusup2" step="1" max="120" min="0">
+                                        <input type="textbox" value="0" id="help_statusup2">
+                                        <h4>ステUP3</h4>
+                                        <input type="range" value="0" id="rg_help_statusup3" step="1" max="120" min="0">
+                                        <input type="textbox" value="0" id="help_statusup3">
+                                        <h4>マグ</h4>
+                                        <input type="range" value="200" id="rg_help_mag" step="1" max="200" min="0">
+                                        <input type="textbox" value="200" id="help_mag">
+                                        <h4>シフタドリンク</h4>
+                                        <label class="skill_ch">
+                                            <input name="help_buffdrink" type="radio" value="1.00" class="skill_level" checked>
+                                            <em>なし</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_buffdrink" type="radio" value="1.05" class="skill_level">
+                                            <em>小</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_buffdrink" type="radio" value="1.10" class="skill_level">
+                                            <em>中</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_buffdrink" type="radio" value="1.20" class="skill_level">
+                                            <em>大</em>
+                                        </label>
+                                        <h4>チームツリー</h4>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.00" class="skill_level" checked>
+                                            <em>なし</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.05" class="skill_level">
+                                            <em>5</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.08" class="skill_level">
+                                            <em>8</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.10" class="skill_level">
+                                            <em>10</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.12" class="skill_level">
+                                            <em>12</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.14" class="skill_level">
+                                            <em>14</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.16" class="skill_level">
+                                            <em>16</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.18" class="skill_level">
+                                            <em>18</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_bufftree" type="radio" value="1.20" class="skill_level">
+                                            <em>20</em>
+                                        </label>
+                                        <h4>OP合計</h4>
+                                        <input type="range" value="0" id="rg_help_allop" step="1" max="1000" min="0">
+                                        <input type="textbox" value="0" id="help_allop" class="help_op">
+                                        <label for="help_op" class="help_op">
+                                            <h4 class="accordion">OP入力補助</h4>
+                                            <input type="checkbox" id="help_op" class="help">
+                                            <div>
+                                                <h4>武器</h4>
+                                                <input type="range" value="0" id="rg_help_weaponop" step="5" max="200" min="0">
+                                                <input type="textbox" value="0" id="help_weaponop">
+                                                <h4>リア</h4>
+                                                <input type="range" value="0" id="rg_help_rearop" step="5" max="200" min="0">
+                                                <input type="textbox" value="0" id="help_rearop">
+                                                <h4>アーム</h4>
+                                                <input type="range" value="0" id="rg_help_armop" step="5" max="200" min="0">
+                                                <input type="textbox" value="0" id="help_armop">
+                                                <h4>レッグ</h4>
+                                                <input type="range" value="0" id="rg_help_legop" step="5" max="200" min="0">
+                                                <input type="textbox" value="0" id="help_legop">
+                                                <h4>セット1</h4>
+                                                <input type="range" value="0" id="rg_help_set1op" step="5" max="200" min="0">
+                                                <input type="textbox" value="0" id="help_set1op">
+                                                <h4>セット2</h4>
+                                                <input type="range" value="0" id="rg_help_set2op" step="5" max="200" min="0">
+                                                <input type="textbox" value="0" id="help_set2op">
+                                            </div>
+                                        </label>
+                                        <h4>リングステUP</h4>
+                                        <input type="range" value="0" id="rg_help_ringstatus" step="1" max="20" min="0">
+                                        <input type="textbox" value="0" id="help_ringstatus">
+                                        <h4>レアマスタリー（またはキャンディ補正値）</h4>
+                                        <input type="range" value="0" id="rg_help_rairmstry" step="1" max="50" min="0">
+                                        <input type="textbox" value="0" id="help_rairmstry">
+                                        <h4>シフタ</h4>
+                                        <label class="skill_ch">
+                                            <input name="help_buff" type="radio" value="1.00" class="skill_level" checked>
+                                            <em>なし</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_buff" type="radio" value="1.182" class="skill_level">
+                                            <em>ライド</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_buff" type="radio" value="1.197" class="skill_level">
+                                            <em>あり(Lv17)</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_buff" type="radio" value="1.22261" class="skill_level">
+                                            <em>ｱﾄﾞﾊﾞﾝｽ5</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_buff" type="radio" value="1.24625" class="skill_level">
+                                            <em>ｱﾄﾞﾊﾞﾝｽ10</em>
+                                        </label>
+                                        <h4>カタナギア解放</h4>
+                                        <label class="skill_ch">
+                                            <input name="help_katanagear" type="radio" value="1.00" class="skill_level" checked>
+                                            <em>なし</em>
+                                        </label>
+                                        <label class="skill_ch">
+                                            <input name="help_katanagear" type="radio" value="1.30" class="skill_level">
+                                            <em>あり</em>
+                                        </label>
+                                    </div>
+                                </label>
+                                <h3>総合技量</h3>
+                                <input type="range" value="500" id="rg_player_dex" step="1" max="1000" min="200">
+                                <input type="textbox" value="500" id="player_dex">
+                                <h3>クリティカル率</h3>
+                                <input type="range" value="5" id="rg_critical_rate" step="1" max="100" min="0">
+                                <input type="textbox" value="5" id="critical_rate">
+                            </li>
+                            <li>
+                                <hr>
+                                武器
+                                <h3>武器攻撃力</h3>
+                                <input type="range" value="1000" id="rg_weapon_atk" step="1" max="3000" min="0">
+                                <input type="textbox" value="1000" id="weapon_atk">
+                                <h3>属性値</h3>
+                                <input type="range" value="50" id="rg_weapon_element" step="1" max="60" min="0">
+                                <input type="textbox" value="50" id="weapon_element">
+                                <h3>潜在能力1</h3>
+                                <input type="range" value="0" id="rg_potential1" step="1" max="1000" min="0">
+                                <input type="textbox" id="potential1">
+                                <select name="potential1">
+                                    <option value="0">ステ</option>
+                                    <option value="1">倍率</option>
+                                    <option value="2">C倍率</option>
+                                </select>
+                                <h3>潜在能力2</h3>
+                                <input type="range" value="0" id="rg_potential1" step="1" max="1000" min="0">
+                                <input type="textbox" id="potential2">
+                                <select name="potential2">
+                                    <option value="0">ステ</option>
+                                    <option value="1">倍率</option>
+                                    <option value="2">C倍率</option>
+                                </select>
+                                <h3>潜在能力3</h3>
+                                <input type="range" value="0" id="rg_potential1" step="1" max="1000" min="0">
+                                <input type="textbox" id="potential3">
+                                <select name="potential3">
+                                    <option value="0">ステ</option>
+                                    <option value="1">倍率</option>
+                                    <option value="2">C倍率</option>
+                                </select>
+                                <!--<h3>潜在能力4</h3>
+                                <input type="range" value="0" id="rg_potential1" step="1" max="1000" min="0">
+                                <input type="textbox" id="potential4">
+                                <select name="potential4">
+                                    <option value="0">ステ</option>
+                                    <option value="1">倍率</option>
+                                    <option value="2">C倍率</option>
+                                </select>
+                                <h3>潜在能力5</h3>
+                                <input type="range" value="0" id="rg_potential1" step="1" max="1000" min="0">
+                                <input type="textbox" id="potential5">
+                                <select name="potential5">
+                                    <option value="0">ステ</option>
+                                    <option value="1">倍率</option>
+                                    <option value="2">C倍率</option>
+                                </select>-->
+                                <div>
+                                    <em>レアリティ</em>
+                                    <select name="weapon_rarity">
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                        <option value="5">5</option>
+                                        <option value="6">6</option>
+                                        <option value="7">7</option>
+                                        <option value="8">8</option>
+                                        <option value="9">9</option>
+                                        <option value="10">10</option>
+                                        <option value="11">11</option>
+                                        <option value="12">12</option>
+                                        <option value="13" selected>13</option>
+                                    </select>
+                                    <em>強化値</em>
+                                    <select name="weapon_plus">
+                                        <option value="0">0</option>
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                        <option value="5">5</option>
+                                        <option value="6">6</option>
+                                        <option value="7">7</option>
+                                        <option value="8">8</option>
+                                        <option value="9">9</option>
+                                        <option value="10" selected>10</option>
+                                    </select>
+                                    <em>補正種類</em>
+                                    <select name="weapon_blurringtype">
+                                        <option value="0">ふつう(レア)</option>
+                                        <option value="1">非ﾚｱ・ｽﾃｨｸﾗﾌﾄ以下</option>
+                                        <option value="2">ｼﾙﾊﾞｸﾗﾌﾄ以上(TD,DS,ｶﾞﾝｽﾗ)</option>
+                                        <option value="3">ｼﾙﾊﾞｸﾗﾌﾄ以上(その他)</option>
+                                        <option value="4">インヴェイド</option>
+                                        <option value="5">ペット</option>
+                                    </select>
+                                </div>
+                            </li>
+                            <li>
+                                <hr>
+                                エネミー
+                                <h3>防御力</h3>
+                                <input type="range" value="315" id="rg_enemy_def" step="1" max="1000" min="0">
+                                <input type="textbox" value="315" id="enemy_def">
+                                <h3>技量</h3>
+                                <input type="range" value="414"  id="rg_enemy_dex" step="1" max="1000" min="0">
+                                <input type="textbox" value="414" id="enemy_def">
+                                <h3>打射法部位倍率</h3>
+                                <input type="range" value="1.0" id="rg_enemy_partrate" step="0.1" max="10.0" min="0">
+                                <input type="textbox" value="1.0" id="enemy_partrate">
+                                <h3>属性部位倍率</h3>
+                                <input type="range" value="1.0" id="rg_enemy_elementrate" step="0.1" max="10.0" min="0">
+                                <input type="textbox" value="1.0" id="enemy_elementrate">
+                            </li>
+                            <li>
+                                <hr>
+                                その他
+                                <h3>リング倍率</h3>
+                                <input type="range" value="1.00" id="rg_ringrate" step="0.01" max="1.03" min="1.00">
+                                <input type="textbox" value="1.00" id="ringrate">
+                                <select name="ring">
+                                    <option value="1">倍率</option>
+                                    <option value="2">C倍率</option>
+                                </select>
+                                <h3>ジャストアタック</h3>
+                                <label class="skill_ch">
+                                    <input name="common_ja" type="radio" value="0" class="skill_level" checked>
+                                    <em>なし</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_ja" type="radio" value="1.3" class="skill_level">
+                                    <em>あり</em>
+                                </label>
+                                <h3>ウィークバレット</h3>
+                                <label class="skill_ch">
+                                    <input name="common_wb" type="radio" value="0" class="skill_level" checked>
+                                    <em>なし</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_wb" type="radio" value="2.55" class="skill_level">
+                                    <em>あり</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_wb" type="radio" value="1.2" class="skill_level">
+                                    <em>あり（ジャミング）</em>
+                                </label>
+                                <h3>アルティメットバスター</h3>
+                                <label class="skill_ch">
+                                    <input name="common_ultb" type="radio" value="0" class="skill_level" checked>
+                                    <em>なし</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_ultb" type="radio" value="10" class="skill_level">
+                                    <em>あり</em>
+                                </label>
+                                <h3>ウェポンブースト</h3>
+                                <label class="skill_ch">
+                                    <input name="common_wpb" type="radio" value="0" class="skill_level" checked>
+                                    <em>なし</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_wpb" type="radio" value="1.025" class="skill_level">
+                                    <em>1</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_wpb" type="radio" value="1.05" class="skill_level">
+                                    <em>2</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_wpb" type="radio" value="1.075" class="skill_level">
+                                    <em>3</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_wpb" type="radio" value="1.10" class="skill_level">
+                                    <em>4</em>
+                                </label>
+                                <h3>PA、技量補正、任意倍率</h3>
+                                <em>PA倍率</em>
+                                <input type="textbox" value="100" id="pa_rate">
+                                <em>技量補正</em>
+                                <input type="textbox" value="1.0" id="dex_bonus">
+                                <em>任意倍率</em>
+                                <input type="textbox" value="1.0" id="any_rate">
+                                <h3>ギア系</h3>
+                                <label class="skill_ch">
+                                    <input name="common_gear" type="radio" value="*0" class="skill_level" checked>
+                                    <em>なし</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_gear" type="radio" value="*5" class="skill_level">
+                                    <em>1.05</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_gear" type="radio" value="*10" class="skill_level">
+                                    <em>1.10</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_gear" type="radio" value="*15" class="skill_level">
+                                    <em>1.15</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_gear" type="radio" value="*20" class="skill_level">
+                                    <em>1.20</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_gear" type="radio" value="*30" class="skill_level">
+                                    <em>1.30</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_gear" type="radio" value="*40" class="skill_level">
+                                    <em>1.40</em>
+                                </label>
+                                <label class="skill_ch">
+                                    <input name="common_gear" type="radio" value="*50" class="skill_level">
+                                    <em>1.50</em>
+                                </label>
+                            </li>
+                        </ul>
+                    </label>
+                </li>
+                
+            </ul>
+        </div>
+        <div>
+            <em>計算式メモ</em>
+            <h3>最大ダメージ</h3>
+            テクニック…((最終攻撃力-防御力)*属性部位倍率)/5*倍率<br>
+            打射法…((最終攻撃力-防御力)*打射法部位倍率+武器攻撃力*属性値%*属性部位倍率)/5*倍率
+            
+            <h3>最小ダメージ</h3>
+            最低保障値 = (自分の技量 * PA の技量補正 - 敵の技量 + 武器補正) * 2 <br>
+               90%上限 = 武器攻撃力 * 90%<br>
+               10%下限 = 武器攻撃力 * 10%<br>
+               　　　<br>
+               有効攻撃力 =<br>
+                  レア武器なら<br>
+                      90%上限<br>
+                  そうでないなら<br>
+                      最低保障値 > 90%上限 なら 90%上限<br>
+                      最低保障値 < 10%下限 なら 10%下限<br>
+                      いずれでもないなら 最低保障値<br>
+               　　　<br>
+               武器分の最小ダメージ = 有効攻撃力 / 5 * 部位倍率 * 倍率まとめ    <br>
+            <br>
+            武器補正 = <br>
+                 非レア武器 or アイロ素材・スティ素材を使うクラフトなら<br>
+                     50 * (強化の伸び率 - 1)<br>
+                 シルバ素材を使うクラフト(ツインダガー・ダブルセイバー・ガンスラッシュ)なら<br>
+                     50 + 100 * (強化の伸び率 - 1)<br>
+                 シルバ素材を使うクラフト(それ以外)なら<br>
+                     100 + 150 * (強化の伸び率 - 1)<br>
+                 インヴェイド武器なら<br>
+                     150 + 200 * (強化の伸び率 - 1)<br>
+                 ペットなら<br>
+                     -50            <br>
+            <h3>期待値</h3>
+            ミッドレンジ = (最大値 + 最小値) / 2 <br>
+               期待値 = ミッドレンジ + クリティカル率 * (最大値*クリティカル倍率 - ミッドレンジ)
+        </div>
+    </div>
+</body>
+
+</html>
+<script type="text/javascript" src="arks.js"></script>
+<script>
+    // クラススキルのページ書き出し
+    function test(){
+        var i=1;
+        //alert(skills['Fo']['ELMMSTRY1']['melee']);
+        for(classname in skills){
+            //alert(key);
+            
+            $('#skills').append('<li id="'+classname+'" class="class"><label for="'+classname+'_ch" class="class_ch"><input id="'+classname+'_ch" type="checkbox"><em style="left:'+60*i+'px;">'+classname+'</em><ul id="'+classname+'_skills" class="class_skills"><li><hr></li></ul></li>');
+            
+            var name='';
+            var noskill='';
+            
+            for(skillname in skills[classname]){
+                name=skills[classname][skillname]['name'];
+                $('#'+classname+'_skills').append('<li><em>'+name+'</em><span id="'+classname+'_'+name+'_ef"></span><div id="'+classname+'_'+name+'"></div></li>');
+
+                $("#"+classname+'_'+name).append('<label class="skill_ch"><input name="'+classname+'_'+name+'" type="radio" value="0" checked class="skill_level"><em>なし</em></label>');
+                
+                //alert(skills[classname][skillname]['melee'].length);
+                
+                if('label' in skills[classname][skillname]) {
+                    for (var j = 0; j < skills[classname][skillname]['melee'].length; j++) {
+                        $("#"+classname+'_'+name).append('<label class="skill_ch"><input name="'+classname+'_'+name+'" type="radio" value="'+(j+1)+'" class="skill_level"><em>'+skills[classname][skillname]['label'][j]+'</em></label>');
+                    }
+                } else {
+                    for (var j = 0; j < skills[classname][skillname]['melee'].length; j++) {
+                        $("#"+classname+'_'+name).append('<label class="skill_ch"><input name="'+classname+'_'+name+'" type="radio" value="'+(j+1)+'" class="skill_level"><em>'+(j+1)+'</em></label>');
+                    }
+                }
+            }
+            i++;
+        }
+    }
+    
+    function nazo(){
+        alert($("input[name='common_nazorate']:checked").val());
+    }
+
+    /*$(function() {
+        $(".skill_level").on("click", function() {
+            alert(this.value);
+        }); 
+    });*/
+    
+    // スライダーとテキストの連携
+    /* 変更中（ドラッグ中） */
+    $('input[type=range]').on( 'input', function () {
+        $('#'+this.id.slice(3)).val($(this).val());
+    });
+
+    /* 変更後 */
+    $('input[type=range]').change(function () {
+        $('#'+this.id.slice(3)).val($(this).val());
+    });
+	
+</script>

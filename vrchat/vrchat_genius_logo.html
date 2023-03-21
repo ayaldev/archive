@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>VRChat Genius</title>
+<style>
+@import url('https://fonts.googleapis.com/css?family=Dosis:600');
+body {
+  background:  url(https://media.giphy.com/media/26ufmyrjQ4BmKN7xe/giphy.gif) no-repeat center center fixed; 
+  background-size: cover;
+	overflow: hidden;
+}
+
+.title {
+  font-family: 'Dosis', sans-serif;
+	text-align: center;
+	color: #FFF;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100vh;
+	letter-spacing: 1px;
+}
+
+h1 {
+	background-image: url(https://media.giphy.com/media/26ufo4EIIEdB8tX3y/giphy.gif);
+	background-size: cover;
+	color: transparent;
+	-moz-background-clip: text;
+	-webkit-background-clip: text;
+	text-transform: uppercase;
+	font-size: 130px;
+	line-height: .80;
+	margin: 10px 0;
+}
+/* styling my button */
+
+.white-mode {
+	text-decoration: none;
+	padding: 7px 10px;
+	background-color: #122;
+	border-radius: 3px;
+	color: #FFF;
+	transition: .35s ease-in-out;
+	position: absolute;
+	left: 15px;
+	bottom: 15px;
+	font-family: "Montserrat";
+}
+
+.white-mode:hover {
+	background-color: #FFF;
+	color: #122;
+}
+
+</style>
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script>
+$(function() {
+  var input = $('#input');
+  var logs = $('#logs');
+
+  var keys = {
+    BS: function() {
+      input.val(input.val().slice(0, -1));
+    },
+    ENT: function() {
+      var log = $('<div>').text(input.val());
+      logs.append(log);
+      input.val('');
+    }
+  };
+
+  window.key = function(key) {
+    location.hash = '#' + Math.random();
+    if (keys[key]) {
+      keys[key]();
+    } else {
+      input.val(input.val() + key);
+    }
+  };
+});
+</script>
+</head>
+<body>
+<div class="title">
+ <h1>VRChat<br/>Genius</h1>
+
+
+</div>
+</body>
+</html>

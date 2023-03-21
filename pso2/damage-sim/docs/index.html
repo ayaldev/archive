@@ -1,0 +1,132 @@
+﻿<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <script type="text/javascript" src="mathex.js"></script>
+    <script type="text/javascript" src="d3.v4.min.js"></script>
+    <script type="text/javascript" src="jquery.js"></script>
+    <link rel="stylesheet" href="pure.min.css">
+    <link rel="stylesheet" href="pso2d.css">
+    <script type="text/javascript" src="skills.js"></script>
+    <title>d3test</title>
+</head>
+<body>
+    <div id="result">
+    </div>
+    <div id="param">
+        <label>
+            <input type="checkbox" class="skill_visible" checked disabled>
+            <strong class="pure-button navi" style="left:0px;">共通</strong>
+            <label id="setting" class="pure-form">
+                <input type="checkbox">
+                <label>
+                    <input type="checkbox">
+                    <h3>setting</h3>
+                    <div>
+                        <label v-for="(v,index) in ['打撃','射撃','ペット','テク']">
+                            <input name="atktype" v-model="paramaters.atktype" type="radio" :value="index"><span class="pure-button"><strong>{{ v }}</strong></span>
+                        </label>
+                        <label>
+                            <input type="checkbox" v-model="paramaters.nazo" :true-value="1.05" :false-value="1.00">
+                            <span class="pure-button"><strong>{{ paramaters.nazo ? '謎倍率あり' : '謎倍率なし'}}</strong></span>
+                        </label>
+                        <button id="add" onclick="addGraph()" class="pure-button"><strong>追加</strong></button>
+                        <button id="save" onclick="saveURL()" class="pure-button"><strong>URL</strong></button>
+                        <button id="sort" onclick="sortGraph()" class="pure-button"><strong>ソート</strong></button>
+                    </div>
+                    <h3>player <span>{{ summary_p }}</span></h3>
+                    <div>
+                        <renge-text class="range-text" id="p_atk" name="基礎攻撃力" step="1" max="5000" min="0" v-model="paramaters.p_atk"></renge-text>
+                        <renge-text class="range-text" id="p_dex" name="技量合計" step="1" max="1000" min="0" v-model="paramaters.p_dex"></renge-text>
+                        <renge-text class="range-text" id="c_hit_r" name="クリティカル率合計" step="1" max="100" min="0" v-model="paramaters.c_hit_r"></renge-text>
+                    </div>
+                    <h3>weapon <span>{{ summary_w }}</span></h3>
+                    <div>
+                        <renge-text class="range-text" id="w_atk" name="攻撃力" step="1" max="3000" min="0" v-model="paramaters.w_atk">{{'test'}}</renge-text>
+                        <renge-text class="range-text" id="w_elm" name="属性値" step="1" max="60" min="0" v-model="paramaters.w_elm"></renge-text>
+                        <renge-text class="range-text" id="w_p1" name="潜在能力1" step="1" max="60" min="0" wp="w_p1_t" v-model="paramaters.w_p1"></renge-text>
+                        <renge-text class="range-text" id="w_p2" name="潜在能力2" step="1" max="60" min="0" wp="w_p2_t" v-model="paramaters.w_p2"></renge-text>
+                        <renge-text class="range-text" id="w_p3" name="潜在能力3" step="1" max="60" min="0" wp="w_p3_t" v-model="paramaters.w_p3"></renge-text>
+                        <renge-text class="range-text" id="w_p4" name="潜在能力4" step="1" max="60" min="0" wp="w_p4_t" v-model="paramaters.w_p4"></renge-text>
+                        <label class="g-field">
+                            <h4>種類</h4>
+                            <input type="checkbox" v-model="paramaters.w_type" :true-value="1" :false-value="0">
+                            <span class="pure-button"><strong>{{ paramaters.w_type ? '新世' : '旧式'}}</strong></span>
+                        </label>
+                        <label class="g-field">
+                            <h4>レアリティ</h4>
+                            <select v-model.number="paramaters.w_rarity" id="w_rarity">
+                                <option v-for="n in 14" v-bind:value="n">{{n}}</option>
+                            </select>
+                        </label>
+                        <label class="g-field">
+                            <h4>強化値</h4>
+                            <select v-model.number="paramaters.w_plus" id="w_plus">
+                                <option v-for="n in 11" :value="n-1">{{n-1}}</option>
+                            </select>
+                        </label>
+                        <label class="g-field">
+                            <h4>ブレ種類</h4>
+                            <select v-model.number="paramaters.w_bluetype" id="w_bluetype">
+                                <option value="0">ふつう</option>
+                                <option value="1">ｽﾃｨｸﾗﾌﾄ以下</option>
+                                <option value="2">ｼﾙﾊﾞｸﾗﾌﾄ以上(TD,DS,ｶﾞﾝｽﾗ)</option>
+                                <option value="3">ｼﾙﾊﾞｸﾗﾌﾄ以上(その他)</option>
+                                <option value="4">インヴェイド</option>
+                                <option value="5">ペット</option>
+                            </select>
+                        </label>
+                    </div>
+                    <h3>enemy <span>{{ summary_e }}</span></h3>
+                    <div>
+                        <renge-text class="range-text" name="防御力" step="1" max="600" min="0" v-model="paramaters.e_def"></renge-text>
+                        <renge-text class="range-text" name="技量" step="1" max="600" min="0" v-model="paramaters.e_dex"></renge-text>
+                        <renge-text class="range-text" name="打撃/射撃部位倍率" step="0.1" max="6" min="0" v-model="paramaters.e_pt_r"></renge-text>
+                        <renge-text class="range-text" name="属性部位倍率" step="0.1" max="6" min="0" v-model="paramaters.e_ept_r"></renge-text>
+                    </div>
+                    <h3>任意倍率・pa・リング・ギア等 <span>{{ summary_any }}</span></h3>
+                    <div>
+                        <renge-text class="range-text" name="任意倍率" step="0.1" max="6" min="0" v-model="paramaters.any_r"></renge-text>
+                        <renge-text class="range-text" name="PA倍率" step="1" max="6000" min="0" v-model="paramaters.pa_r"></renge-text>
+                        <renge-text class="range-text" name="技量補正" step="1" max="200" min="0" v-model="paramaters.pa_dex_r"></renge-text>
+                        <renge-text class="range-text" id="p_rg1" name="リング1" step="0.1" max="10" min="0" wp="p_rg1_t" v-model="paramaters.p_rg1"></renge-text>
+                        <renge-text class="range-text" id="p_rg2" name="リング2" step="0.1" max="10" min="0" wp="p_rg2_t" v-model="paramaters.p_rg2"></renge-text>
+                    </div>
+                    <h3>スキル等 <span>{{ summary_skill }}</span></h3>
+                    <div>
+                        <label class="skill" v-for="coSkill in classSkills('Co')">
+                            <input type="checkbox">
+                            <div>
+                                <h4>{{ coSkill.name }} <span class="skillef" v-for="sk in existSkills(coSkill.id)">{{getSkillEfString(sk.id,sk.lv)}}</span></h4>
+                            </div>
+                            <label>
+                                <label v-for="n in coSkill.melee.length+1">
+                                    <input type="radio" :name="coSkill.id" :value="n-1" v-on:click="getSkill($event)"
+                                        ><span class="pure-button"><strong>{{ coSkill.label && n-1>0 ? coSkill.label[n-2] : n-1 }}</strong></span></label>
+                        </label>
+                    </div>
+                </label>
+            </label>
+        </label>
+        <label v-for="(navi,index) in navigators">
+            <input type="checkbox" class="skill_visible">
+            <strong class="pure-button navi" :style="'left:'+(index+1)*60+'px;border-color:#'+navi.color+';'">{{ navi.name }}</strong>
+            <label :style="'border-color:#'+navi.color+';'">
+                <label class="skill" v-for="skill in classSkills(navi.name)">
+                    <input type="checkbox">
+                    <div>
+                        <h4>{{ skill.name }} <span class="skillef" v-for="sk in existSkills(skill.id)">{{getSkillEfString(sk.id,sk.lv)}}</span></h4>
+                    </div>
+                    <label>
+                        <label v-for="n in skill.melee.length+1">
+                            <input type="radio" :name="skill.id" :value="n-1" v-on:click="getSkill($event)"
+                                ><span class="pure-button"><strong>{{ skill.label && n-1>0 ? skill.label[n-2] : n-1 }}</strong></span></label>
+                </label>
+            </label>
+        </label>
+    </div>
+    <script type="text/javascript" src="d3test.js"></script>
+    <script type="text/javascript" src="vue.v2.min.js"></script>
+    <script type="text/javascript" src="vueskills.js"></script>
+</body>
+</html>
