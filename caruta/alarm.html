@@ -164,7 +164,7 @@
                 cacheChart.data.datasets[0].data.shift();
                 
                 // Change chart color based on threshold
-                if (cacheValue > 4) {
+                if (cacheValue > 10) {
                     document.body.classList.add('alert-active');
                     cacheChart.data.datasets[0].borderColor = '#ff0000';
                     cacheChart.data.datasets[0].backgroundColor = 'rgba(255, 0, 0, 0.3)';
