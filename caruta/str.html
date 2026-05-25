@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMD Facebook Multi-Key Controller Pro</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #121214;
+            color: #e1e1e6;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 80px 0 120px 0;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #1a1a1e;
+            border: 1px solid #29292e;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 550px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        /* Hover-Expanding Top-Left Power/Reboot Button */
+        .reboot-corner-wrap {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 200;
+        }
+
+        .reboot-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0px;
+            width: 42px;
+            height: 42px;
+            background-color: #242429;
+            border: 1px solid #3a3a42;
+            color: #f75a68;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            overflow: hidden;
+            white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            padding: 0;
+        }
+
+        .reboot-btn .icon {
+            font-size: 1.2rem;
+            display: inline-block;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .reboot-btn .text {
+            max-width: 0;
+            opacity: 0;
+            transition: max-width 0.3s, opacity 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Hover Expansion State */
+        .reboot-btn:hover {
+            width: 115px;
+            background-color: #b32b36;
+            color: #fff;
+            border-color: #f75a68;
+            gap: 4px;
+            padding-right: 12px;
+        }
+
+        .reboot-btn:hover .text {
+            max-width: 70px;
+            opacity: 1;
+        }
+
+        .reboot-btn:disabled {
+            width: 160px !important;
+            background-color: #3e3e42 !important;
+            border-color: #29292e !important;
+            color: #a8a8b3 !important;
+            border-radius: 6px;
+        }
+        .reboot-btn:disabled .text {
+            max-width: 120px !important;
+            opacity: 1 !important;
+        }
+
+        .key-matrix {
+            margin-bottom: 10px;
+            text-align: left;
+        }
+
+        .key-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            background-color: #151518;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid #222226;
+        }
+
+        .key-row.selected-row {
+            border-color: #1877f2;
+            background-color: #161f30;
+        }
+
+        .row-label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #a8a8b3;
+            min-width: 75px;
+        }
+
+        .radio-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #1877f2;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 10px 12px;
+            background-color: #121214;
+            border: 1px solid #29292e;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #1877f2;
+            outline: none;
+        }
+
+        /* Fixed Sticky Bottom Action Container */
+        .floating-action-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(21, 21, 24, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid #29292e;
+            padding: 20px 0;
+            display: flex;
+            justify-content: center;
+            z-index: 500;
+            box-shadow: 0 -8px 24px rgba(0,0,0,0.4);
+        }
+
+        .action-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            width: 100%;
+            max-width: 550px;
+            padding: 0 30px;
+            box-sizing: border-box;
+        }
+
+        .action-btn {
+            flex-grow: 1;
+            padding: 16px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .action-btn:active {
+            transform: scale(0.99);
+        }
+
+        .state-idle { background-color: #00b37e; }
+        .state-idle:hover { background-color: #00996c; }
+
+        .state-streaming { background-color: #f75a68; }
+        .state-streaming:hover { background-color: #e54e5d; }
+
+        .state-restart { background-color: #ff9f43; }
+        .state-restart:hover { background-color: #ee5a24; }
+
+        .select-wrapper {
+            position: relative;
+            width: 120px;
+            flex-shrink: 0;
+        }
+
+        select {
+            width: 100%;
+            padding: 16px 30px 16px 12px;
+            background-color: #1e1e24;
+            border: 1px solid #29292e;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            box-sizing: border-box;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23fff'><polygon points='0,0 10,0 5,5'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+
+        select:focus {
+            border-color: #1877f2;
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="reboot-corner-wrap">
+    <button id="reboot-btn" class="reboot-btn" onclick="handleRebootTrigger()" title="Force Hardware Protocol Reboot">
+        <span class="icon">⏽</span><span class="text">Reboot</span>
+    </button>
+</div>
+
+<div class="container">
+    <div class="key-matrix">
+		<div class="key-row selected-row" id="row-63">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="63" checked onchange="updateRowFocus()"></div>
+            <span class="row-label">BP</span>
+            <input type="text" class="stream-key-input" id="stream-key-63" placeholder="Paste Stream Key 63...">
+        </div>
+        <div class="key-row selected-row" id="row-1">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="1" checked onchange="updateRowFocus()"></div>
+            <span class="row-label">MUP1</span>
+            <input type="text" class="stream-key-input" id="stream-key-1" placeholder="Paste Stream Key 1...">
+        </div>
+        <div class="key-row" id="row-2">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="2" onchange="updateRowFocus()"></div>
+            <span class="row-label">DPD</span>
+            <input type="text" class="stream-key-input" id="stream-key-2" placeholder="Paste Stream Key 2...">
+        </div>
+        <div class="key-row" id="row-3">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="3" onchange="updateRowFocus()"></div>
+            <span class="row-label">DB</span>
+            <input type="text" class="stream-key-input" id="stream-key-3" placeholder="Paste Stream Key 3...">
+        </div>
+        <div class="key-row" id="row-4">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="4" onchange="updateRowFocus()"></div>
+            <span class="row-label">OT</span>
+            <input type="text" class="stream-key-input" id="stream-key-4" placeholder="Paste Stream Key 4...">
+        </div>
+        <div class="key-row" id="row-5">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="5" onchange="updateRowFocus()"></div>
+            <span class="row-label">MUP2</span>
+            <input type="text" class="stream-key-input" id="stream-key-5" placeholder="Paste Stream Key 5...">
+        </div>
+        <div class="key-row" id="row-6">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="6" onchange="updateRowFocus()"></div>
+            <span class="row-label">MBCTVNN</span>
+            <input type="text" class="stream-key-input" id="stream-key-6" placeholder="Paste Stream Key 6...">
+        </div>
+        <div class="key-row" id="row-7">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="7" onchange="updateRowFocus()"></div>
+            <span class="row-label">TBN</span>
+            <input type="text" class="stream-key-input" id="stream-key-7" placeholder="Paste Stream Key 7...">
+        </div>
+        <div class="key-row" id="row-8">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="8" onchange="updateRowFocus()"></div>
+            <span class="row-label">TNVS</span>
+            <input type="text" class="stream-key-input" id="stream-key-8" placeholder="Paste Stream Key 8...">
+        </div>
+        <div class="key-row" id="row-9">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="9" onchange="updateRowFocus()"></div>
+            <span class="row-label">RHB</span>
+            <input type="text" class="stream-key-input" id="stream-key-9" placeholder="Paste Stream Key 9...">
+        </div>
+        <div class="key-row" id="row-10">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="10" onchange="updateRowFocus()"></div>
+            <span class="row-label">PSH</span>
+            <input type="text" class="stream-key-input" id="stream-key-10" placeholder="Paste Stream Key 10...">
+        </div>
+        <div class="key-row" id="row-11">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="11" onchange="updateRowFocus()"></div>
+            <span class="row-label">BT</span>
+            <input type="text" class="stream-key-input" id="stream-key-11" placeholder="Paste Stream Key 11...">
+        </div>
+        <div class="key-row" id="row-12">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="12" onchange="updateRowFocus()"></div>
+            <span class="row-label">BL</span>
+            <input type="text" class="stream-key-input" id="stream-key-12" placeholder="Paste Stream Key 12...">
+        </div>
+        <div class="key-row" id="row-13">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="13" onchange="updateRowFocus()"></div>
+            <span class="row-label">UL</span>
+            <input type="text" class="stream-key-input" id="stream-key-13" placeholder="Paste Stream Key 13...">
+        </div>
+        <div class="key-row" id="row-14">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="14" onchange="updateRowFocus()"></div>
+            <span class="row-label">L</span>
+            <input type="text" class="stream-key-input" id="stream-key-14" placeholder="Paste Stream Key 14...">
+        </div>
+        <div class="key-row" id="row-15">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="15" onchange="updateRowFocus()"></div>
+            <span class="row-label">LX</span>
+            <input type="text" class="stream-key-input" id="stream-key-15" placeholder="Paste Stream Key 15...">
+        </div>
+        <div class="key-row" id="row-16">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="16" onchange="updateRowFocus()"></div>
+            <span class="row-label">TNT</span>
+            <input type="text" class="stream-key-input" id="stream-key-16" placeholder="Paste Stream Key 16...">
+        </div>
+        <div class="key-row" id="row-17">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="17" onchange="updateRowFocus()"></div>
+            <span class="row-label">STG</span>
+            <input type="text" class="stream-key-input" id="stream-key-17" placeholder="Paste Stream Key 17...">
+        </div>
+        <div class="key-row" id="row-18">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="18" onchange="updateRowFocus()"></div>
+            <span class="row-label">AK</span>
+            <input type="text" class="stream-key-input" id="stream-key-18" placeholder="Paste Stream Key 18...">
+        </div>
+        <div class="key-row" id="row-19">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="19" onchange="updateRowFocus()"></div>
+            <span class="row-label">TEM</span>
+            <input type="text" class="stream-key-input" id="stream-key-19" placeholder="Paste Stream Key 19...">
+        </div>
+        <div class="key-row" id="row-20">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="20" onchange="updateRowFocus()"></div>
+            <span class="row-label">RHB2</span>
+            <input type="text" class="stream-key-input" id="stream-key-20" placeholder="Paste Stream Key 20...">
+        </div>
+        <div class="key-row" id="row-21">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="21" onchange="updateRowFocus()"></div>
+            <span class="row-label">TMBY</span>
+            <input type="text" class="stream-key-input" id="stream-key-21" placeholder="Paste Stream Key 21...">
+        </div>
+        <div class="key-row" id="row-22">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="22" onchange="updateRowFocus()"></div>
+            <span class="row-label">ADB</span>
+            <input type="text" class="stream-key-input" id="stream-key-22" placeholder="Paste Stream Key 22...">
+        </div>
+        <div class="key-row" id="row-23">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="23" onchange="updateRowFocus()"></div>
+            <span class="row-label">SOS</span>
+            <input type="text" class="stream-key-input" id="stream-key-23" placeholder="Paste Stream Key 23...">
+        </div>
+        <div class="key-row" id="row-24">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="24" onchange="updateRowFocus()"></div>
+            <span class="row-label">EXS</span>
+            <input type="text" class="stream-key-input" id="stream-key-24" placeholder="Paste Stream Key 24...">
+        </div>
+        <div class="key-row" id="row-25">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="25" onchange="updateRowFocus()"></div>
+            <span class="row-label">MP</span>
+            <input type="text" class="stream-key-input" id="stream-key-25" placeholder="Paste Stream Key 25...">
+        </div>
+        <div class="key-row" id="row-26">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="26" onchange="updateRowFocus()"></div>
+            <span class="row-label">HBY</span>
+            <input type="text" class="stream-key-input" id="stream-key-26" placeholder="Paste Stream Key 26...">
+        </div>
+        <div class="key-row" id="row-27">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="27" onchange="updateRowFocus()"></div>
+            <span class="row-label">RHBSAT</span>
+            <input type="text" class="stream-key-input" id="stream-key-27" placeholder="Paste Stream Key 27...">
+        </div>
+        <div class="key-row" id="row-28">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="28" onchange="updateRowFocus()"></div>
+            <span class="row-label">SZ</span>
+            <input type="text" class="stream-key-input" id="stream-key-28" placeholder="Paste Stream Key 28...">
+        </div>
+        <div class="key-row" id="row-29">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="29" onchange="updateRowFocus()"></div>
+            <span class="row-label">MP2</span>
+            <input type="text" class="stream-key-input" id="stream-key-29" placeholder="Paste Stream Key 29...">
+        </div>
+        <div class="key-row" id="row-30">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="30" onchange="updateRowFocus()"></div>
+            <span class="row-label">DARQ</span>
+            <input type="text" class="stream-key-input" id="stream-key-30" placeholder="Paste Stream Key 30...">
+        </div>
+        <div class="key-row" id="row-31">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="31" onchange="updateRowFocus()"></div>
+            <span class="row-label">DSKTE</span>
+            <input type="text" class="stream-key-input" id="stream-key-31" placeholder="Paste Stream Key 31...">
+        </div>
+        <div class="key-row" id="row-32">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="32" onchange="updateRowFocus()"></div>
+            <span class="row-label">AA</span>
+            <input type="text" class="stream-key-input" id="stream-key-32" placeholder="Paste Stream Key 32...">
+        </div>
+        <div class="key-row" id="row-33">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="33" onchange="updateRowFocus()"></div>
+            <span class="row-label">KMY</span>
+            <input type="text" class="stream-key-input" id="stream-key-33" placeholder="Paste Stream Key 33...">
+        </div>
+        <div class="key-row" id="row-34">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="34" onchange="updateRowFocus()"></div>
+            <span class="row-label">BOOM</span>
+            <input type="text" class="stream-key-input" id="stream-key-34" placeholder="Paste Stream Key 34...">
+        </div>
+        <div class="key-row" id="row-35">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="35" onchange="updateRowFocus()"></div>
+            <span class="row-label">SL</span>
+            <input type="text" class="stream-key-input" id="stream-key-35" placeholder="Paste Stream Key 35...">
+        </div>
+        <div class="key-row" id="row-36">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="36" onchange="updateRowFocus()"></div>
+            <span class="row-label">HBD</span>
+            <input type="text" class="stream-key-input" id="stream-key-36" placeholder="Paste Stream Key 36...">
+        </div>
+        <div class="key-row" id="row-37">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="37" onchange="updateRowFocus()"></div>
+            <span class="row-label">LSAT</span>
+            <input type="text" class="stream-key-input" id="stream-key-37" placeholder="Paste Stream Key 37...">
+        </div>
+        <div class="key-row" id="row-38">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="38" onchange="updateRowFocus()"></div>
+            <span class="row-label">LXSAT</span>
+            <input type="text" class="stream-key-input" id="stream-key-38" placeholder="Paste Stream Key 38...">
+        </div>
+        <div class="key-row" id="row-39">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="39" onchange="updateRowFocus()"></div>
+            <span class="row-label">SS</span>
+            <input type="text" class="stream-key-input" id="stream-key-39" placeholder="Paste Stream Key 39...">
+        </div>
+        <div class="key-row" id="row-40">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="40" onchange="updateRowFocus()"></div>
+            <span class="row-label">GNM</span>
+            <input type="text" class="stream-key-input" id="stream-key-40" placeholder="Paste Stream Key 40...">
+        </div>
+        <div class="key-row" id="row-41">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="41" onchange="updateRowFocus()"></div>
+            <span class="row-label">SU</span>
+            <input type="text" class="stream-key-input" id="stream-key-41" placeholder="Paste Stream Key 41...">
+        </div>
+        <div class="key-row" id="row-42">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="42" onchange="updateRowFocus()"></div>
+            <span class="row-label">MBL</span>
+            <input type="text" class="stream-key-input" id="stream-key-42" placeholder="Paste Stream Key 42...">
+        </div>
+        <div class="key-row" id="row-43">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="43" onchange="updateRowFocus()"></div>
+            <span class="row-label">MUP</span>
+            <input type="text" class="stream-key-input" id="stream-key-43" placeholder="Paste Stream Key 43...">
+        </div>
+        <div class="key-row" id="row-44">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="44" onchange="updateRowFocus()"></div>
+            <span class="row-label">IP</span>
+            <input type="text" class="stream-key-input" id="stream-key-44" placeholder="Paste Stream Key 44...">
+        </div>
+        <div class="key-row" id="row-45">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="45" onchange="updateRowFocus()"></div>
+            <span class="row-label">DOCU</span>
+            <input type="text" class="stream-key-input" id="stream-key-45" placeholder="Paste Stream Key 45...">
+        </div>
+        <div class="key-row" id="row-46">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="46" onchange="updateRowFocus()"></div>
+            <span class="row-label">HNTHN</span>
+            <input type="text" class="stream-key-input" id="stream-key-46" placeholder="Paste Stream Key 46...">
+        </div>
+        <div class="key-row" id="row-47">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="47" onchange="updateRowFocus()"></div>
+            <span class="row-label">AGMD</span>
+            <input type="text" class="stream-key-input" id="stream-key-47" placeholder="Paste Stream Key 47...">
+        </div>
+        <div class="key-row" id="row-48">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="48" onchange="updateRowFocus()"></div>
+            <span class="row-label">RHBSUN</span>
+            <input type="text" class="stream-key-input" id="stream-key-48" placeholder="Paste Stream Key 48...">
+        </div>
+        <div class="key-row" id="row-49">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="49" onchange="updateRowFocus()"></div>
+            <span class="row-label">POV</span>
+            <input type="text" class="stream-key-input" id="stream-key-49" placeholder="Paste Stream Key 49...">
+        </div>
+        <div class="key-row" id="row-50">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="50" onchange="updateRowFocus()"></div>
+            <span class="row-label">HCP1</span>
+            <input type="text" class="stream-key-input" id="stream-key-50" placeholder="Paste Stream Key 50...">
+        </div>
+        <div class="key-row" id="row-51">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="51" onchange="updateRowFocus()"></div>
+            <span class="row-label">MASS</span>
+            <input type="text" class="stream-key-input" id="stream-key-51" placeholder="Paste Stream Key 51...">
+        </div>
+        <div class="key-row" id="row-52">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="52" onchange="updateRowFocus()"></div>
+            <span class="row-label">EO</span>
+            <input type="text" class="stream-key-input" id="stream-key-52" placeholder="Paste Stream Key 52...">
+        </div>
+        <div class="key-row" id="row-53">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="53" onchange="updateRowFocus()"></div>
+            <span class="row-label">A2A</span>
+            <input type="text" class="stream-key-input" id="stream-key-53" placeholder="Paste Stream Key 53...">
+        </div>
+        <div class="key-row" id="row-54">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="54" onchange="updateRowFocus()"></div>
+            <span class="row-label">RHNYO</span>
+            <input type="text" class="stream-key-input" id="stream-key-54" placeholder="Paste Stream Key 54...">
+        </div>
+        <div class="key-row" id="row-55">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="55" onchange="updateRowFocus()"></div>
+            <span class="row-label">MTRBHO</span>
+            <input type="text" class="stream-key-input" id="stream-key-55" placeholder="Paste Stream Key 55...">
+        </div>
+        <div class="key-row" id="row-56">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="56" onchange="updateRowFocus()"></div>
+            <span class="row-label">HCP2</span>
+            <input type="text" class="stream-key-input" id="stream-key-56" placeholder="Paste Stream Key 56...">
+        </div>
+        <div class="key-row" id="row-57">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="57" onchange="updateRowFocus()"></div>
+            <span class="row-label">LXSUN</span>
+            <input type="text" class="stream-key-input" id="stream-key-57" placeholder="Paste Stream Key 57...">
+        </div>
+        <div class="key-row" id="row-58">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="58" onchange="updateRowFocus()"></div>
+            <span class="row-label">KPNLIG</span>
+            <input type="text" class="stream-key-input" id="stream-key-58" placeholder="Paste Stream Key 58...">
+        </div>
+        <div class="key-row" id="row-59">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="59" onchange="updateRowFocus()"></div>
+            <span class="row-label">SOH</span>
+            <input type="text" class="stream-key-input" id="stream-key-59" placeholder="Paste Stream Key 59...">
+        </div>
+        <div class="key-row" id="row-60">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="60" onchange="updateRowFocus()"></div>
+            <span class="row-label">ST</span>
+            <input type="text" class="stream-key-input" id="stream-key-60" placeholder="Paste Stream Key 60...">
+        </div>
+        <div class="key-row" id="row-61">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="61" onchange="updateRowFocus()"></div>
+            <span class="row-label">BSYAT</span>
+            <input type="text" class="stream-key-input" id="stream-key-61" placeholder="Paste Stream Key 61...">
+        </div>
+        <div class="key-row" id="row-62">
+            <div class="radio-container"><input type="radio" name="active-key-selector" value="62" onchange="updateRowFocus()"></div>
+            <span class="row-label">FTO</span>
+            <input type="text" class="stream-key-input" id="stream-key-62" placeholder="Paste Stream Key 62...">
+        </div>
+    </div>
+</div>
+
+<div class="floating-action-bar">
+    <div class="action-row">
+        <button id="master-btn" class="action-btn state-idle" onclick="handleMasterAction()">Checking status...</button>
+        <div class="select-wrapper">
+            <select id="delay-select" title="Facebook Server Reset Delay Window">
+                <option value="0">0s Delay</option>
+                <option value="1" selected>1s Delay</option>
+                <option value="10">10s Delay</option>
+                <option value="20">20s Delay</option>
+                <option value="30">30s Delay</option>
+                <option value="40">40s Delay</option>
+                <option value="50">50s Delay</option>
+                <option value="60">60s Delay</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<script>
+const BASE_URL = 'http://172.16.10.25/control/api/v1';
+const PROTOCOL_URL = 'http://172.16.10.25:9977';
+const masterBtn = document.getElementById('master-btn');
+const rebootBtn = document.getElementById('reboot-btn');
+const delaySelect = document.getElementById('delay-select');
+
+let isStreaming = false;
+let isProcessing = false;
+let activeStreamKey = ""; 
+let isKeyEdited = false;
+
+// 1. Function to Load Keys from LocalStorage on page initialization
+function loadSavedKeys() {
+    document.querySelectorAll('.stream-key-input').forEach(input => {
+        const savedValue = localStorage.getItem(input.id);
+        if (savedValue !== null) {
+            input.value = savedValue;
+        }
+    });
+}
+
+// 2. Function to Save an individual input field's key on modification
+function saveKeyToStorage(event) {
+    const input = event.target;
+    localStorage.setItem(input.id, input.value);
+    evaluateKeyStateChange();
+}
+
+function getSelectedStreamKey() {
+    const activeRadio = document.querySelector('input[name="active-key-selector"]:checked');
+    if (!activeRadio) return "";
+    const activeIndex = activeRadio.value;
+    return document.getElementById(`stream-key-${activeIndex}`).value.trim();
+}
+
+function updateRowFocus() {
+    document.querySelectorAll('.key-row').forEach(row => row.classList.remove('selected-row'));
+    const activeRadio = document.querySelector('input[name="active-key-selector"]:checked');
+    if (activeRadio) {
+        document.getElementById(`row-${activeRadio.value}`).classList.add('selected-row');
+    }
+    evaluateKeyStateChange();
+}
+
+function evaluateKeyStateChange() {
+    if (isStreaming) {
+        const currentSelectedKey = getSelectedStreamKey();
+        if (currentSelectedKey !== activeStreamKey) {
+            isKeyEdited = true;
+            masterBtn.innerText = "RESTART WITH NEW KEY";
+            masterBtn.className = "action-btn state-restart";
+        } else {
+            isKeyEdited = false;
+            masterBtn.innerText = "STOP STREAM";
+            masterBtn.className = "action-btn state-streaming";
+        }
+    }
+}
+
+// Bind event listeners to handle input data saving
+document.querySelectorAll('.stream-key-input').forEach(input => {
+    input.addEventListener('input', saveKeyToStorage);
+});
+
+async function checkCurrentStatus() {
+    if (isProcessing) return; 
+
+    try {
+        const response = await fetch(`${BASE_URL}/livestreams/0`);
+        if (!response.ok) throw new Error('Offline');
+        const data = await response.json();
+        
+        const streamingNow = (data.status === "Streaming" || data.status === "Connecting");
+        
+        if (streamingNow !== isStreaming) {
+            isStreaming = streamingNow;
+            if (!isStreaming) {
+                activeStreamKey = "";
+                isKeyEdited = false;
+            }
+            setStreamingUI();
+        }
+    } catch (error) {
+        masterBtn.innerText = "DEVICE OFFLINE";
+        masterBtn.className = "action-btn";
+        masterBtn.style.backgroundColor = "#3e3e42";
+    }
+}
+
+function setStreamingUI() {
+    if (isStreaming) {
+        if (isKeyEdited) {
+            masterBtn.innerText = "RESTART WITH NEW KEY";
+            masterBtn.className = "action-btn state-restart";
+        } else {
+            masterBtn.innerText = "STOP STREAM";
+            masterBtn.className = "action-btn state-streaming";
+        }
+    } else {
+        masterBtn.innerText = "APPLY & START STREAM";
+        masterBtn.className = "action-btn state-idle";
+    }
+}
+
+async function stopStreamAction() {
+    try {
+        const response = await fetch(`${BASE_URL}/livestreams/0/stop`, { method: 'PUT' });
+        return response.ok || response.status === 204;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function startStreamAction(streamKey) {
+    try {
+        const platformPayload = {
+            "platform": "Facebook",
+            "server": "Default",
+            "quality": "Streaming Low", 
+            "key": streamKey
+        };
+
+        const keyResponse = await fetch(`${BASE_URL}/livestreams/0/activePlatform`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(platformPayload)
+        });
+
+        if (keyResponse.ok || keyResponse.status === 204) {
+            await new Promise(resolve => setTimeout(resolve, 350));
+            const startResponse = await fetch(`${BASE_URL}/livestreams/0/start`, { method: 'PUT' });
+            return startResponse.ok || startResponse.status === 204;
+        }
+        return false;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function handleRebootTrigger() {
+    rebootBtn.innerHTML = '<span class="icon">⏽</span><span class="text">Rebooting...</span>';
+    rebootBtn.disabled = true;
+
+    try {
+        const response = await fetch(`${PROTOCOL_URL}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: "SHUTDOWN:\nAction: reboot\n\n"
+        });
+
+        if (response.ok) {
+            setUIRebootState();
+        } else {
+            const fallbackResponse = await fetch(`${PROTOCOL_URL}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: "HARDWARE CONTROL:\nReboot: true\n\n"
+            });
+            
+            if (fallbackResponse.ok) {
+                setUIRebootState();
+            } else {
+                resetRebootBtn();
+            }
+        }
+    } catch (error) {
+        setUIRebootState();
+    }
+}
+
+function setUIRebootState() {
+    masterBtn.innerText = "DEVICE REBOOTING...";
+    masterBtn.className = "action-btn";
+    masterBtn.style.backgroundColor = "#3e3e42";
+    setTimeout(resetRebootBtn, 8000);
+}
+
+function resetRebootBtn() {
+    rebootBtn.disabled = false;
+    rebootBtn.innerHTML = '<span class="icon">⏽</span><span class="text">Reboot</span>';
+}
+
+async function handleMasterAction() {
+    if (isProcessing) return;
+    isProcessing = true;
+
+    const currentTargetKey = getSelectedStreamKey();
+
+    if (isStreaming && isKeyEdited) {
+        masterBtn.innerText = "STOPPING PREVIOUS...";
+
+        const stopped = await stopStreamAction();
+        if (stopped) {
+            let countdown = parseInt(delaySelect.value, 10) || 0; 
+            while (countdown > 0) {
+                masterBtn.innerText = `WAITING FOR FB TO CLEAR (${countdown}s)...`;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                countdown--;
+            }
+
+            masterBtn.innerText = "APPLYING NEW TARGET KEY...";
+
+            const started = await startStreamAction(currentTargetKey);
+            if (started) {
+                activeStreamKey = currentTargetKey;
+                isKeyEdited = false;
+                isStreaming = true;
+            } else {
+                isStreaming = false;
+            }
+        } else {
+            isStreaming = false;
+        }
+        setStreamingUI();
+    }
+    else if (isStreaming && !isKeyEdited) {
+        masterBtn.innerText = "STOPPING...";
+        
+        const stopped = await stopStreamAction();
+        if (stopped) {
+            activeStreamKey = "";
+            isStreaming = false;
+        }
+        setStreamingUI();
+    } 
+    else {
+        if (!currentTargetKey) {
+            alert("The selected stream key field is empty. Please paste your key first.");
+            isProcessing = false;
+            return;
+        }
+
+        masterBtn.innerText = "PROCESSING...";
+
+        const started = await startStreamAction(currentTargetKey);
+        if (started) {
+            activeStreamKey = currentTargetKey;
+            isKeyEdited = false;
+            isStreaming = true;
+        } else {
+            isStreaming = false;
+        }
+        setStreamingUI();
+    }
+
+    isProcessing = false;
+}
+
+// Initialize layout properties on runtime configuration load
+loadSavedKeys();
+checkCurrentStatus();
+updateRowFocus();
+setInterval(checkCurrentStatus, 3000);
+</script>
+
+</body>
+</html>
