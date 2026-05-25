@@ -25,7 +25,7 @@
             border-radius: 12px;
             padding: 30px;
             width: 100%;
-            max-width: 550px;
+            max-width: 850px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.5);
             text-align: center;
         }
@@ -74,7 +74,6 @@
             letter-spacing: 0.5px;
         }
 
-        /* Hover Expansion State */
         .reboot-btn:hover {
             width: 115px;
             background-color: #b32b36;
@@ -109,7 +108,7 @@
         .key-row {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             margin-bottom: 10px;
             background-color: #151518;
             padding: 6px 12px;
@@ -122,18 +121,12 @@
             background-color: #161f30;
         }
 
-        .row-label {
-            font-size: 0.85rem;
-            font-weight: bold;
-            color: #a8a8b3;
-            min-width: 75px;
-        }
-
         .radio-container {
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            padding-right: 4px;
         }
 
         input[type="radio"] {
@@ -144,21 +137,242 @@
             margin: 0;
         }
 
-        input[type="text"] {
+        /* Input Container wrappers for Overflow Fade effects */
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background-color: #121214;
+            border: 1px solid #29292e;
+            border-radius: 6px;
+            transition: border-color 0.2s;
+            overflow: hidden;
+            height: 40px; 
+            box-sizing: border-box;
+        }
+        
+        .input-wrapper:focus-within {
+            border-color: #1877f2;
+        }
+
+        .label-wrapper {
+            width: 150px;
+            flex-shrink: 0;
+        }
+
+        .middle-wrapper {
+            width: 180px;
+            flex-shrink: 0;
+        }
+
+        .key-wrapper {
             flex-grow: 1;
+        }
+
+        /* Fade overlay applied at the right edge of copyable inputs before the button space */
+        .fade-overlay::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 32px; 
+            width: 25px;
+            height: 100%;
+            background: linear-gradient(to right, rgba(18,18,20,0) 0%, rgba(18,18,20,1) 100%);
+            pointer-events: none;
+        }
+
+        /* Standard text input fields layout properties */
+        input[type="text"] {
+            width: 100%;
             padding: 10px 12px;
+            background-color: transparent;
+            border: none;
+            color: #fff;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            outline: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Contenteditable Preview Display container updates */
+        .editable-box-field {
+            display: block;
+            width: 100%;
+            max-height: 40px;
+            padding: 10px 12px;
+            background-color: transparent;
+            border: none;
+            color: #fff;
+            font-size: 0.95rem;
+            line-height: 1.25rem;
+            box-sizing: border-box;
+            outline: none;
+            white-space: pre; 
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .fade-overlay input[type="text"], .fade-overlay .editable-box-field {
+            padding-right: 35px; 
+        }
+
+        .label-wrapper .editable-box-field {
+            font-weight: bold;
+            color: #a8a8b3;
+        }
+
+        /* Contextual Inline Copy Button */
+        .inline-copy-btn {
+            position: absolute;
+            right: 6px;
+            background: none;
+            border: none;
+            color: #6e6e77;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 4px;
+            z-index: 5;
+            transition: color 0.2s;
+        }
+        .inline-copy-btn:hover {
+            color: #1877f2;
+        }
+
+        /* Plain Stream Key Input field */
+        .key-wrapper input[type="text"] {
+            background-color: #121214;
+            cursor: text;
+        }
+
+        /* Select All and Paste Button */
+        .paste-btn {
+            background-color: #242429;
+            border: 1px solid #3a3a42;
+            color: #a8a8b3;
+            border-radius: 6px;
+            padding: 10px 10px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 40px;
+            box-sizing: border-box;
+        }
+
+        .paste-btn:hover {
+            background-color: #1877f2;
+            border-color: #388af4;
+            color: #fff;
+        }
+
+        /* Modal Structure for Textarea Popup Layouts */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background-color: #1a1a1e;
+            border: 1px solid #29292e;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            padding: 20px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #29292e;
+            padding-bottom: 10px;
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #a8a8b3;
+            font-size: 1.3rem;
+            cursor: pointer;
+        }
+
+        .modal-card textarea {
+            width: 100%;
+            height: 160px;
             background-color: #121214;
             border: 1px solid #29292e;
             border-radius: 6px;
             color: #fff;
+            padding: 12px;
+            font-family: inherit;
             font-size: 0.95rem;
+            resize: vertical;
             box-sizing: border-box;
-            transition: border-color 0.2s;
+            outline: none;
+        }
+        .modal-card textarea:focus {
+            border-color: #1877f2;
         }
 
-        input[type="text"]:focus {
-            border-color: #1877f2;
-            outline: none;
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .modal-btn-cancel {
+            background-color: #242429;
+            color: #a8a8b3;
+            border: 1px solid #3a3a42;
+        }
+
+        .modal-btn-save {
+            background-color: #1877f2;
+            color: #fff;
         }
 
         /* Fixed Sticky Bottom Action Container */
@@ -252,320 +466,20 @@
 
 <div class="container">
     <div class="key-matrix">
-		<div class="key-row selected-row" id="row-63">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="63" checked onchange="updateRowFocus()"></div>
-            <span class="row-label">BP</span>
-            <input type="text" class="stream-key-input" id="stream-key-63" placeholder="Paste Stream Key 63...">
+        <div id="dynamic-matrix-target"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="text-modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title" id="modal-title-text">Edit Field Content</div>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
         </div>
-        <div class="key-row selected-row" id="row-1">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="1" checked onchange="updateRowFocus()"></div>
-            <span class="row-label">MUP1</span>
-            <input type="text" class="stream-key-input" id="stream-key-1" placeholder="Paste Stream Key 1...">
-        </div>
-        <div class="key-row" id="row-2">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="2" onchange="updateRowFocus()"></div>
-            <span class="row-label">DPD</span>
-            <input type="text" class="stream-key-input" id="stream-key-2" placeholder="Paste Stream Key 2...">
-        </div>
-        <div class="key-row" id="row-3">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="3" onchange="updateRowFocus()"></div>
-            <span class="row-label">DB</span>
-            <input type="text" class="stream-key-input" id="stream-key-3" placeholder="Paste Stream Key 3...">
-        </div>
-        <div class="key-row" id="row-4">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="4" onchange="updateRowFocus()"></div>
-            <span class="row-label">OT</span>
-            <input type="text" class="stream-key-input" id="stream-key-4" placeholder="Paste Stream Key 4...">
-        </div>
-        <div class="key-row" id="row-5">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="5" onchange="updateRowFocus()"></div>
-            <span class="row-label">MUP2</span>
-            <input type="text" class="stream-key-input" id="stream-key-5" placeholder="Paste Stream Key 5...">
-        </div>
-        <div class="key-row" id="row-6">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="6" onchange="updateRowFocus()"></div>
-            <span class="row-label">MBCTVNN</span>
-            <input type="text" class="stream-key-input" id="stream-key-6" placeholder="Paste Stream Key 6...">
-        </div>
-        <div class="key-row" id="row-7">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="7" onchange="updateRowFocus()"></div>
-            <span class="row-label">TBN</span>
-            <input type="text" class="stream-key-input" id="stream-key-7" placeholder="Paste Stream Key 7...">
-        </div>
-        <div class="key-row" id="row-8">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="8" onchange="updateRowFocus()"></div>
-            <span class="row-label">TNVS</span>
-            <input type="text" class="stream-key-input" id="stream-key-8" placeholder="Paste Stream Key 8...">
-        </div>
-        <div class="key-row" id="row-9">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="9" onchange="updateRowFocus()"></div>
-            <span class="row-label">RHB</span>
-            <input type="text" class="stream-key-input" id="stream-key-9" placeholder="Paste Stream Key 9...">
-        </div>
-        <div class="key-row" id="row-10">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="10" onchange="updateRowFocus()"></div>
-            <span class="row-label">PSH</span>
-            <input type="text" class="stream-key-input" id="stream-key-10" placeholder="Paste Stream Key 10...">
-        </div>
-        <div class="key-row" id="row-11">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="11" onchange="updateRowFocus()"></div>
-            <span class="row-label">BT</span>
-            <input type="text" class="stream-key-input" id="stream-key-11" placeholder="Paste Stream Key 11...">
-        </div>
-        <div class="key-row" id="row-12">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="12" onchange="updateRowFocus()"></div>
-            <span class="row-label">BL</span>
-            <input type="text" class="stream-key-input" id="stream-key-12" placeholder="Paste Stream Key 12...">
-        </div>
-        <div class="key-row" id="row-13">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="13" onchange="updateRowFocus()"></div>
-            <span class="row-label">UL</span>
-            <input type="text" class="stream-key-input" id="stream-key-13" placeholder="Paste Stream Key 13...">
-        </div>
-        <div class="key-row" id="row-14">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="14" onchange="updateRowFocus()"></div>
-            <span class="row-label">L</span>
-            <input type="text" class="stream-key-input" id="stream-key-14" placeholder="Paste Stream Key 14...">
-        </div>
-        <div class="key-row" id="row-15">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="15" onchange="updateRowFocus()"></div>
-            <span class="row-label">LX</span>
-            <input type="text" class="stream-key-input" id="stream-key-15" placeholder="Paste Stream Key 15...">
-        </div>
-        <div class="key-row" id="row-16">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="16" onchange="updateRowFocus()"></div>
-            <span class="row-label">TNT</span>
-            <input type="text" class="stream-key-input" id="stream-key-16" placeholder="Paste Stream Key 16...">
-        </div>
-        <div class="key-row" id="row-17">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="17" onchange="updateRowFocus()"></div>
-            <span class="row-label">STG</span>
-            <input type="text" class="stream-key-input" id="stream-key-17" placeholder="Paste Stream Key 17...">
-        </div>
-        <div class="key-row" id="row-18">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="18" onchange="updateRowFocus()"></div>
-            <span class="row-label">AK</span>
-            <input type="text" class="stream-key-input" id="stream-key-18" placeholder="Paste Stream Key 18...">
-        </div>
-        <div class="key-row" id="row-19">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="19" onchange="updateRowFocus()"></div>
-            <span class="row-label">TEM</span>
-            <input type="text" class="stream-key-input" id="stream-key-19" placeholder="Paste Stream Key 19...">
-        </div>
-        <div class="key-row" id="row-20">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="20" onchange="updateRowFocus()"></div>
-            <span class="row-label">RHB2</span>
-            <input type="text" class="stream-key-input" id="stream-key-20" placeholder="Paste Stream Key 20...">
-        </div>
-        <div class="key-row" id="row-21">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="21" onchange="updateRowFocus()"></div>
-            <span class="row-label">TMBY</span>
-            <input type="text" class="stream-key-input" id="stream-key-21" placeholder="Paste Stream Key 21...">
-        </div>
-        <div class="key-row" id="row-22">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="22" onchange="updateRowFocus()"></div>
-            <span class="row-label">ADB</span>
-            <input type="text" class="stream-key-input" id="stream-key-22" placeholder="Paste Stream Key 22...">
-        </div>
-        <div class="key-row" id="row-23">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="23" onchange="updateRowFocus()"></div>
-            <span class="row-label">SOS</span>
-            <input type="text" class="stream-key-input" id="stream-key-23" placeholder="Paste Stream Key 23...">
-        </div>
-        <div class="key-row" id="row-24">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="24" onchange="updateRowFocus()"></div>
-            <span class="row-label">EXS</span>
-            <input type="text" class="stream-key-input" id="stream-key-24" placeholder="Paste Stream Key 24...">
-        </div>
-        <div class="key-row" id="row-25">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="25" onchange="updateRowFocus()"></div>
-            <span class="row-label">MP</span>
-            <input type="text" class="stream-key-input" id="stream-key-25" placeholder="Paste Stream Key 25...">
-        </div>
-        <div class="key-row" id="row-26">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="26" onchange="updateRowFocus()"></div>
-            <span class="row-label">HBY</span>
-            <input type="text" class="stream-key-input" id="stream-key-26" placeholder="Paste Stream Key 26...">
-        </div>
-        <div class="key-row" id="row-27">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="27" onchange="updateRowFocus()"></div>
-            <span class="row-label">RHBSAT</span>
-            <input type="text" class="stream-key-input" id="stream-key-27" placeholder="Paste Stream Key 27...">
-        </div>
-        <div class="key-row" id="row-28">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="28" onchange="updateRowFocus()"></div>
-            <span class="row-label">SZ</span>
-            <input type="text" class="stream-key-input" id="stream-key-28" placeholder="Paste Stream Key 28...">
-        </div>
-        <div class="key-row" id="row-29">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="29" onchange="updateRowFocus()"></div>
-            <span class="row-label">MP2</span>
-            <input type="text" class="stream-key-input" id="stream-key-29" placeholder="Paste Stream Key 29...">
-        </div>
-        <div class="key-row" id="row-30">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="30" onchange="updateRowFocus()"></div>
-            <span class="row-label">DARQ</span>
-            <input type="text" class="stream-key-input" id="stream-key-30" placeholder="Paste Stream Key 30...">
-        </div>
-        <div class="key-row" id="row-31">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="31" onchange="updateRowFocus()"></div>
-            <span class="row-label">DSKTE</span>
-            <input type="text" class="stream-key-input" id="stream-key-31" placeholder="Paste Stream Key 31...">
-        </div>
-        <div class="key-row" id="row-32">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="32" onchange="updateRowFocus()"></div>
-            <span class="row-label">AA</span>
-            <input type="text" class="stream-key-input" id="stream-key-32" placeholder="Paste Stream Key 32...">
-        </div>
-        <div class="key-row" id="row-33">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="33" onchange="updateRowFocus()"></div>
-            <span class="row-label">KMY</span>
-            <input type="text" class="stream-key-input" id="stream-key-33" placeholder="Paste Stream Key 33...">
-        </div>
-        <div class="key-row" id="row-34">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="34" onchange="updateRowFocus()"></div>
-            <span class="row-label">BOOM</span>
-            <input type="text" class="stream-key-input" id="stream-key-34" placeholder="Paste Stream Key 34...">
-        </div>
-        <div class="key-row" id="row-35">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="35" onchange="updateRowFocus()"></div>
-            <span class="row-label">SL</span>
-            <input type="text" class="stream-key-input" id="stream-key-35" placeholder="Paste Stream Key 35...">
-        </div>
-        <div class="key-row" id="row-36">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="36" onchange="updateRowFocus()"></div>
-            <span class="row-label">HBD</span>
-            <input type="text" class="stream-key-input" id="stream-key-36" placeholder="Paste Stream Key 36...">
-        </div>
-        <div class="key-row" id="row-37">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="37" onchange="updateRowFocus()"></div>
-            <span class="row-label">LSAT</span>
-            <input type="text" class="stream-key-input" id="stream-key-37" placeholder="Paste Stream Key 37...">
-        </div>
-        <div class="key-row" id="row-38">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="38" onchange="updateRowFocus()"></div>
-            <span class="row-label">LXSAT</span>
-            <input type="text" class="stream-key-input" id="stream-key-38" placeholder="Paste Stream Key 38...">
-        </div>
-        <div class="key-row" id="row-39">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="39" onchange="updateRowFocus()"></div>
-            <span class="row-label">SS</span>
-            <input type="text" class="stream-key-input" id="stream-key-39" placeholder="Paste Stream Key 39...">
-        </div>
-        <div class="key-row" id="row-40">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="40" onchange="updateRowFocus()"></div>
-            <span class="row-label">GNM</span>
-            <input type="text" class="stream-key-input" id="stream-key-40" placeholder="Paste Stream Key 40...">
-        </div>
-        <div class="key-row" id="row-41">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="41" onchange="updateRowFocus()"></div>
-            <span class="row-label">SU</span>
-            <input type="text" class="stream-key-input" id="stream-key-41" placeholder="Paste Stream Key 41...">
-        </div>
-        <div class="key-row" id="row-42">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="42" onchange="updateRowFocus()"></div>
-            <span class="row-label">MBL</span>
-            <input type="text" class="stream-key-input" id="stream-key-42" placeholder="Paste Stream Key 42...">
-        </div>
-        <div class="key-row" id="row-43">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="43" onchange="updateRowFocus()"></div>
-            <span class="row-label">MUP</span>
-            <input type="text" class="stream-key-input" id="stream-key-43" placeholder="Paste Stream Key 43...">
-        </div>
-        <div class="key-row" id="row-44">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="44" onchange="updateRowFocus()"></div>
-            <span class="row-label">IP</span>
-            <input type="text" class="stream-key-input" id="stream-key-44" placeholder="Paste Stream Key 44...">
-        </div>
-        <div class="key-row" id="row-45">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="45" onchange="updateRowFocus()"></div>
-            <span class="row-label">DOCU</span>
-            <input type="text" class="stream-key-input" id="stream-key-45" placeholder="Paste Stream Key 45...">
-        </div>
-        <div class="key-row" id="row-46">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="46" onchange="updateRowFocus()"></div>
-            <span class="row-label">HNTHN</span>
-            <input type="text" class="stream-key-input" id="stream-key-46" placeholder="Paste Stream Key 46...">
-        </div>
-        <div class="key-row" id="row-47">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="47" onchange="updateRowFocus()"></div>
-            <span class="row-label">AGMD</span>
-            <input type="text" class="stream-key-input" id="stream-key-47" placeholder="Paste Stream Key 47...">
-        </div>
-        <div class="key-row" id="row-48">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="48" onchange="updateRowFocus()"></div>
-            <span class="row-label">RHBSUN</span>
-            <input type="text" class="stream-key-input" id="stream-key-48" placeholder="Paste Stream Key 48...">
-        </div>
-        <div class="key-row" id="row-49">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="49" onchange="updateRowFocus()"></div>
-            <span class="row-label">POV</span>
-            <input type="text" class="stream-key-input" id="stream-key-49" placeholder="Paste Stream Key 49...">
-        </div>
-        <div class="key-row" id="row-50">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="50" onchange="updateRowFocus()"></div>
-            <span class="row-label">HCP1</span>
-            <input type="text" class="stream-key-input" id="stream-key-50" placeholder="Paste Stream Key 50...">
-        </div>
-        <div class="key-row" id="row-51">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="51" onchange="updateRowFocus()"></div>
-            <span class="row-label">MASS</span>
-            <input type="text" class="stream-key-input" id="stream-key-51" placeholder="Paste Stream Key 51...">
-        </div>
-        <div class="key-row" id="row-52">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="52" onchange="updateRowFocus()"></div>
-            <span class="row-label">EO</span>
-            <input type="text" class="stream-key-input" id="stream-key-52" placeholder="Paste Stream Key 52...">
-        </div>
-        <div class="key-row" id="row-53">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="53" onchange="updateRowFocus()"></div>
-            <span class="row-label">A2A</span>
-            <input type="text" class="stream-key-input" id="stream-key-53" placeholder="Paste Stream Key 53...">
-        </div>
-        <div class="key-row" id="row-54">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="54" onchange="updateRowFocus()"></div>
-            <span class="row-label">RHNYO</span>
-            <input type="text" class="stream-key-input" id="stream-key-54" placeholder="Paste Stream Key 54...">
-        </div>
-        <div class="key-row" id="row-55">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="55" onchange="updateRowFocus()"></div>
-            <span class="row-label">MTRBHO</span>
-            <input type="text" class="stream-key-input" id="stream-key-55" placeholder="Paste Stream Key 55...">
-        </div>
-        <div class="key-row" id="row-56">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="56" onchange="updateRowFocus()"></div>
-            <span class="row-label">HCP2</span>
-            <input type="text" class="stream-key-input" id="stream-key-56" placeholder="Paste Stream Key 56...">
-        </div>
-        <div class="key-row" id="row-57">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="57" onchange="updateRowFocus()"></div>
-            <span class="row-label">LXSUN</span>
-            <input type="text" class="stream-key-input" id="stream-key-57" placeholder="Paste Stream Key 57...">
-        </div>
-        <div class="key-row" id="row-58">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="58" onchange="updateRowFocus()"></div>
-            <span class="row-label">KPNLIG</span>
-            <input type="text" class="stream-key-input" id="stream-key-58" placeholder="Paste Stream Key 58...">
-        </div>
-        <div class="key-row" id="row-59">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="59" onchange="updateRowFocus()"></div>
-            <span class="row-label">SOH</span>
-            <input type="text" class="stream-key-input" id="stream-key-59" placeholder="Paste Stream Key 59...">
-        </div>
-        <div class="key-row" id="row-60">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="60" onchange="updateRowFocus()"></div>
-            <span class="row-label">ST</span>
-            <input type="text" class="stream-key-input" id="stream-key-60" placeholder="Paste Stream Key 60...">
-        </div>
-        <div class="key-row" id="row-61">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="61" onchange="updateRowFocus()"></div>
-            <span class="row-label">BSYAT</span>
-            <input type="text" class="stream-key-input" id="stream-key-61" placeholder="Paste Stream Key 61...">
-        </div>
-        <div class="key-row" id="row-62">
-            <div class="radio-container"><input type="radio" name="active-key-selector" value="62" onchange="updateRowFocus()"></div>
-            <span class="row-label">FTO</span>
-            <input type="text" class="stream-key-input" id="stream-key-62" placeholder="Paste Stream Key 62...">
+        <textarea id="modal-textarea" placeholder="Enter custom context text configurations..."></textarea>
+        <div class="modal-actions">
+            <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="modal-btn modal-btn-save" onclick="saveModalContent()">Apply changes</button>
         </div>
     </div>
 </div>
@@ -599,22 +513,173 @@ let isStreaming = false;
 let isProcessing = false;
 let activeStreamKey = ""; 
 let isKeyEdited = false;
+let currentActiveInputId = null;
 
-// 1. Function to Load Keys from LocalStorage on page initialization
+const rowMetaData = [
+    {id: 1, defLabel: "BALITANG PROMDI with KISSES JABSON"}, {id: 2, defLabel: "MAGANDANG UMAGA PILIPINAS with ANGELO PALMONES"}, {id: 3, defLabel: "DOS POR DOS with ANTHONY TABERNA & GERRY BAJA"}, {id: 4, defLabel: "DAMDAMING BAYAN with DEO MACALMA & ELAINE APIT"},
+    {id: 5, defLabel: "OPERATION TULONG with MAE BINAUHAN"}, {id: 6, defLabel: "MAGANDANG UMAGA PILIPINAS with ANGELO PALMONES"}, {id: 7, defLabel: "MBC TV Network News"}, {id: 8, defLabel: "THE BETTER NEWS with ROVHIC MANUEL"},
+    {id: 9, defLabel: "Trending N’ Viral Show"}, {id: 10, defLabel: "RAPIDO HATAW BALITA with REY SIBAYAN & ROMMEL FUERTES"}, {id: 11, defLabel: "PUBLIC SERVICE HOUR with MAE BINAUHAN"}, {id: 12, defLabel: "BREAKTIME with DEO MACALMA & THEA PECHO-CORPUZ"},
+    {id: 13, defLabel: "BALANSYADO with HENRY URI & KAREN OW-YONG"}, {id: 14, defLabel: "Usapang Legal"}, {id: 15, defLabel: "Usapang Legal 2"}, {id: 16, defLabel: "LUNAS"}, {id: 17, defLabel: "LUNAS EXTENSION"},
+    {id: 18, defLabel: "TOMORROW'S NEWS TONIGHT with REY SIBAYAN & KISSES JABSON"}, {id: 19, defLabel: "SHOWBIZ TALK GANERN with MORLY ALINIO & GORGY RULA"}, {id: 20, defLabel: "AKSYON KABABAIHAN"}, {id: 21, defLabel: "TEM"},
+    {id: 22, defLabel: "RHB2"}, {id: 23, defLabel: "TMBY"}, {id: 24, defLabel: "ADB"}, {id: 25, defLabel: "SOS"},
+    {id: 26, defLabel: "EXS"}, {id: 27, defLabel: "MP"}, {id: 28, defLabel: "HBY"}, {id: 29, defLabel: "RHBSAT"},
+    {id: 30, defLabel: "SZ"}, {id: 31, defLabel: "MP2"}, {id: 32, defLabel: "DARQ"}, {id: 33, defLabel: "DSKTE"},
+    {id: 34, defLabel: "AA"}, {id: 35, defLabel: "KMY"}, {id: 36, defLabel: "BOOM"}, {id: 37, defLabel: "SL"},
+    {id: 38, defLabel: "HBD"}, {id: 39, defLabel: "LSAT"}, {id: 40, defLabel: "LXSAT"}, {id: 41, defLabel: "SS"},
+    {id: 42, defLabel: "GNM"}, {id: 43, defLabel: "SU"}, {id: 44, defLabel: "MBL"}, {id: 45, defLabel: "MUP"},
+    {id: 46, defLabel: "IP"}, {id: 47, defLabel: "DOCU"}, {id: 48, defLabel: "HNTHN"}, {id: 49, defLabel: "AGMD"},
+    {id: 50, defLabel: "RHBSUN"}, {id: 51, defLabel: "POV"}, {id: 52, defLabel: "HCP1"}, {id: 53, defLabel: "MASS"},
+    {id: 54, defLabel: "EO"}, {id: 55, defLabel: "A2A"}, {id: 56, defLabel: "RHNYO"}, {id: 57, defLabel: "MTRBHO"},
+    {id: 58, defLabel: "HCP2"}, {id: 59, defLabel: "LXSUN"}, {id: 60, defLabel: "KPNLIG"}, {id: 61, defLabel: "SOH"},
+    {id: 62, defLabel: "ST"}, {id: 63, defLabel: "BSYAT"}, {id: 64, defLabel: "FTO"}
+];
+
+function renderMatrix() {
+    const target = document.getElementById("dynamic-matrix-target");
+    let htmlContent = "";
+
+    rowMetaData.forEach((row, index) => {
+        const isChecked = index === 0 ? "checked" : "";
+        const selectClass = index === 0 ? "selected-row" : "";
+
+        htmlContent += `
+        <div class="key-row ${selectClass}" id="row-${row.id}">
+            <div class="radio-container">
+                <input type="radio" name="active-key-selector" value="${row.id}" ${isChecked} onchange="updateRowFocus()">
+            </div>
+            
+            <div class="input-wrapper label-wrapper fade-overlay">
+                <div class="editable-box-field" id="label-field-${row.id}" onclick="openModalPopup('label-field-${row.id}')" contenteditable="false"></div>
+                <button class="inline-copy-btn" onclick="copyValueInline(event, 'label-field-${row.id}')" title="Copy Title">📋</button>
+            </div>
+
+            <div class="input-wrapper middle-wrapper fade-overlay">
+                <div class="editable-box-field" id="middle-field-${row.id}" onclick="openModalPopup('middle-field-${row.id}')" contenteditable="false"></div>
+                <button class="inline-copy-btn" onclick="copyValueInline(event, 'middle-field-${row.id}')" title="Copy Description">📋</button>
+            </div>
+
+            <div class="input-wrapper key-wrapper">
+                <input type="text" class="stream-key-input" id="stream-key-${row.id}" placeholder="Paste Stream Key ${row.id}..." oninput="saveKeyDirectly(event)">
+            </div>
+
+            <button class="paste-btn" onclick="handleSelectAndPaste(${row.id})" title="Select all & Paste from Clipboard">📋➕ Paste</button>
+        </div>`;
+    });
+
+    target.innerHTML = htmlContent;
+}
+
+renderMatrix();
+
 function loadSavedKeys() {
-    document.querySelectorAll('.stream-key-input').forEach(input => {
-        const savedValue = localStorage.getItem(input.id);
-        if (savedValue !== null) {
-            input.value = savedValue;
+    rowMetaData.forEach(row => {
+        // Load Stream Keys
+        const savedKey = localStorage.getItem(`stream-key-${row.id}`);
+        const keyInput = document.getElementById(`stream-key-${row.id}`);
+        if (savedKey !== null) {
+            keyInput.value = savedKey;
+        }
+
+        // Load Custom Titles
+        const savedLabel = localStorage.getItem(`label-field-${row.id}`);
+        const labelDiv = document.getElementById(`label-field-${row.id}`);
+        if (savedLabel !== null && savedLabel.trim() !== "") {
+            labelDiv.innerText = savedLabel;
+        } else {
+            labelDiv.innerText = row.defLabel;
+        }
+
+        // Load Descriptions 
+        const savedMiddle = localStorage.getItem(`middle-field-${row.id}`);
+        const middleDiv = document.getElementById(`middle-field-${row.id}`);
+        if (savedMiddle !== null && savedMiddle.trim() !== "") {
+            middleDiv.innerText = savedMiddle;
+        } else {
+            middleDiv.innerText = row.defLabel;
         }
     });
 }
 
-// 2. Function to Save an individual input field's key on modification
-function saveKeyToStorage(event) {
-    const input = event.target;
-    localStorage.setItem(input.id, input.value);
+function saveKeyDirectly(event) {
+    const targetInput = event.target;
+    localStorage.setItem(targetInput.id, targetInput.value);
     evaluateKeyStateChange();
+}
+
+async function handleSelectAndPaste(rowId) {
+    const targetInput = document.getElementById(`stream-key-${rowId}`);
+    try {
+        const clipboardText = await navigator.clipboard.readText();
+        if (clipboardText) {
+            targetInput.value = clipboardText.trim();
+            localStorage.setItem(targetInput.id, targetInput.value);
+            evaluateKeyStateChange();
+            targetInput.select();
+        }
+    } catch (err) {
+        targetInput.focus();
+        targetInput.select();
+        document.execCommand('paste');
+    }
+}
+
+function openModalPopup(inputId) {
+    currentActiveInputId = inputId;
+    const targetField = document.getElementById(inputId);
+    const textAreaModal = document.getElementById("modal-textarea");
+    const modalTitle = document.getElementById("modal-title-text");
+
+    textAreaModal.value = targetField.innerText;
+    
+    if (inputId.startsWith("label")) {
+        modalTitle.innerText = "Title";
+    } else {
+        modalTitle.innerText = "Description";
+    }
+
+    document.getElementById("text-modal").classList.add("active");
+    setTimeout(() => textAreaModal.focus(), 50);
+}
+
+function closeModal() {
+    document.getElementById("text-modal").classList.remove("active");
+    currentActiveInputId = null;
+}
+
+function saveModalContent() {
+    if (!currentActiveInputId) return;
+
+    const textAreaModal = document.getElementById("modal-textarea");
+    const originalInput = document.getElementById(currentActiveInputId);
+
+    originalInput.innerText = textAreaModal.value;
+    localStorage.setItem(currentActiveInputId, textAreaModal.value);
+    
+    closeModal();
+}
+
+function copyValueInline(event, inputId) {
+    event.stopPropagation(); 
+    const referenceField = document.getElementById(inputId);
+    const triggerBtn = event.target;
+
+    if (!referenceField.innerText) return;
+
+    navigator.clipboard.writeText(referenceField.innerText).then(() => {
+        triggerBtn.innerText = "✓";
+        triggerBtn.style.color = "#00b37e";
+        setTimeout(() => {
+            triggerBtn.innerText = "📋";
+            triggerBtn.style.color = "";
+        }, 1250);
+    }).catch(() => {
+        const range = document.createRange();
+        range.selectNodeContents(referenceField);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand('copy');
+    });
 }
 
 function getSelectedStreamKey() {
@@ -647,11 +712,6 @@ function evaluateKeyStateChange() {
         }
     }
 }
-
-// Bind event listeners to handle input data saving
-document.querySelectorAll('.stream-key-input').forEach(input => {
-    input.addEventListener('input', saveKeyToStorage);
-});
 
 async function checkCurrentStatus() {
     if (isProcessing) return; 
@@ -837,7 +897,10 @@ async function handleMasterAction() {
     isProcessing = false;
 }
 
-// Initialize layout properties on runtime configuration load
+document.getElementById('text-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+
 loadSavedKeys();
 checkCurrentStatus();
 updateRowFocus();
