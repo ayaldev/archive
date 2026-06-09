@@ -3,42 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stream Grid</title>
+    <title>Automated Fluid Monitor Matrix</title>
     <style>
+        /* Matrix Rules: Absolute zero gaps for streams */
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
         }
-        body {
+        body, html {
             background-color: #000;
             height: 100vh;
             width: 100vw;
             overflow: hidden;
-            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
         }
         
-        /* Dynamic Grid Layout */
+        /* Seamless Edge-to-Edge Fluid Grid Matrix */
         .grid-container {
             display: grid;
             width: 100%;
             height: 100%;
-            gap: 2px; /* Tiny gap to separate screens cleanly */
-            background-color: #111;
+            gap: 0px;
+            padding: 0;
+            margin: 0;
+            background-color: #000;
         }
 
-        /* Responsive grid configurations based on active stream count */
+        /* Layout State Handlers based on Active Channel Count */
         .grid-container[data-count="1"] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
         .grid-container[data-count="2"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
-        .grid-container[data-count="3"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        .grid-container[data-count="3"] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr; }
         .grid-container[data-count="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
         .grid-container[data-count="5"] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; }
 
         @media (max-width: 768px) {
-            .grid-container[data-count="2"] { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
-            .grid-container[data-count="3"] { grid-template-columns: 1fr; grid-template-rows: repeat(3, 1fr); }
-            .grid-container[data-count="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-            .grid-container[data-count="5"] { grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, 1fr); }
+            .grid-container[data-count="2"], 
+            .grid-container[data-count="3"], 
+            .grid-container[data-count="4"], 
+            .grid-container[data-count="5"] {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(auto-fit, minmax(20vh, 1fr));
+            }
         }
 
         .video-box {
@@ -46,238 +51,247 @@
             width: 100%;
             height: 100%;
             background: #000;
-            overflow: hidden;
+            margin: 0;
+            padding: 0;
         }
         .video-box iframe {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             border: none;
+            margin: 0;
+            padding: 0;
         }
 
-        /* Floating Semi-Transparent Pencil Button */
+        /* Fully Translucent Key Access Interface Node (Hover bottom right to view) */
         .api-btn {
             position: fixed;
-            top: 15px;
+            bottom: 15px;
             right: 15px;
             z-index: 1000;
-            background: rgba(250, 250, 250, 0.2);
-            color: rgba(255, 255, 255, 0.6);
+            background: rgba(20, 20, 20, 0.4);
+            color: rgba(255, 255, 255, 0.3);
             border: none;
-            width: 38px;
-            height: 38px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
-            backdrop-filter: blur(4px);
+            opacity: 0;
+            transition: opacity 0.2s ease, background 0.2s;
         }
-        .api-btn:hover {
-            background: rgba(255, 255, 255, 0.9);
-            color: #121212;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        }
-        .api-btn svg {
-            width: 18px;
-            height: 18px;
-            fill: currentColor;
-        }
+        body:hover .api-btn { opacity: 1; }
+        .api-btn:hover { background: #2979ff; color: #fff; }
+        .api-btn svg { width: 16px; height: 16px; fill: currentColor; }
 
-        /* Modal Overlay & Configuration Styling */
+        /* Configuration Console Pop-up with Padding & Margin Layouts */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.95);
             display: flex; justify-content: center; align-items: center;
             z-index: 2000; opacity: 0; pointer-events: none;
-            transition: opacity 0.3s;
+            transition: opacity 0.2s ease;
         }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
         
         .modal-content {
-            background: #1e1e1e; 
-            padding: 25px; 
-            border-radius: 8px;
-            width: 90%; 
-            max-width: 500px; 
-            text-align: left; 
-            color: white;
-            border: 1px solid #333;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            background: #111; 
+            padding: 30px; 
+            margin: 20px;
+            border-radius: 12px;
+            width: 100%; 
+            max-width: 440px; 
+            color: #fff; 
+            border: 1px solid #252525;
+            font-family: Arial, sans-serif;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .modal-content h3 {
-            text-align: center;
-            margin-bottom: 15px;
+        .modal-content h3 { 
+            text-align: center; 
+            margin-bottom: 20px; 
             font-size: 1.2rem;
+            letter-spacing: 0.5px;
         }
-        
-        .stream-input-group {
-            margin-bottom: 12px;
+
+        /* Instruction Block Spacing */
+        .instructions {
+            background: #161616;
+            border-left: 3px solid #2979ff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            color: #ccc;
         }
-        .stream-input-group label {
-            display: block;
-            font-size: 0.8rem;
-            color: #aaa;
-            margin-bottom: 4px;
+        .instructions ol {
+            padding-left: 18px;
+            margin-top: 8px;
         }
-        .stream-input-group input {
-            width: 100%; padding: 10px;
-            background: #2a2a2a; border: 1px solid #444;
-            color: white; border-radius: 4px; outline: none;
+        .instructions li {
+            margin-bottom: 6px;
+        }
+        .instructions li strong {
+            color: #fff;
+        }
+
+        .modal-content input {
+            width: 100%; 
+            padding: 12px 14px; 
+            margin-bottom: 20px;
+            background: #1a1a1a; 
+            border: 1px solid #333;
+            color: white; 
+            border-radius: 6px; 
+            outline: none; 
             font-size: 0.9rem;
         }
-        .stream-input-group input:focus {
-            border-color: #2979ff;
-        }
-        
-        .modal-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .modal-actions button {
-            flex: 1;
-            padding: 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            font-weight: bold;
-            border: none;
+        .modal-content input:focus { 
+            border-color: #2979ff; 
         }
         .btn-save {
-            background: #2979ff; color: white;
+            width: 100%; 
+            padding: 14px; 
+            background: #2979ff; 
+            color: white; 
+            border-radius: 6px; 
+            cursor: pointer;
+            font-size: 0.95rem; 
+            font-weight: bold; 
+            border: none;
+            transition: background 0.2s;
         }
         .btn-save:hover {
             background: #1565c0;
-        }
-        .btn-cancel {
-            background: #444; color: #aaa;
-        }
-        .btn-cancel:hover {
-            background: #555; color: white;
         }
     </style>
 </head>
 <body>
 
-    <button class="api-btn" onclick="openModal()" title="Update Stream IDs">
-        <svg viewBox="0 0 24 24">
-            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-        </svg>
+    <button class="api-btn" onclick="openModal()" title="System Key Access">
+        <svg viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.59 9.54 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.54 0 4.83-1.59 5.65-4H17v3h3v-3h3v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
     </button>
     
-    <div class="grid-container" id="multiview-grid" data-count="0"></div>
+    <div class="grid-container" id="monitor-matrix"></div>
 
     <div class="modal-overlay" id="api-modal">
         <div class="modal-content">
-            <h3>Update Active Stream Video IDs</h3>
-            <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 15px; text-align: center;">Leave a field blank to temporarily hide that station from the monitor grid.</p>
+            <h3>System Framework Setup</h3>
             
-            <div class="stream-input-group">
-                <label>DZRH TV Video ID:</label>
-                <input type="text" id="id-dzrh" placeholder="e.g., FxsfVX6B1Mk">
+            <div class="instructions">
+                <strong>How to get a free YouTube API Key:</strong>
+                <ol>
+                    <li>Go to the <strong>Google Cloud Console</strong>.</li>
+                    <li>Create a new project and select it.</li>
+                    <li>Navigate to <strong>API Library</strong> and search for <strong>YouTube Data API v3</strong>, then click <strong>Enable</strong>.</li>
+                    <li>Go to the <strong>Credentials</strong> tab, click <strong>+ Create Credentials</strong>, and select <strong>API key</strong>.</li>
+                </ol>
             </div>
-            <div class="stream-input-group">
-                <label>Love Radio Manila Video ID:</label>
-                <input type="text" id="id-love" placeholder="e.g., GG9BLA8f3mo">
-            </div>
-            <div class="stream-input-group">
-                <label>Yes FM Manila 101.1 Video ID:</label>
-                <input type="text" id="id-yes" placeholder="e.g., vicMAhyvyC8">
-            </div>
-            <div class="stream-input-group">
-                <label>Easy Rock Manila Video ID:</label>
-                <input type="text" id="id-easy" placeholder="e.g., wuqlsrvO1kQ">
-            </div>
-            <div class="stream-input-group">
-                <label>Radyo Natin Video ID:</label>
-                <input type="text" id="id-natin" placeholder="Leave blank if offline">
-            </div>
-            
-            <div class="modal-actions">
-                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="btn-save" onclick="saveIds()">Apply & Render</button>
-            </div>
+
+            <input type="text" id="api-input" placeholder="Paste your AIzaSy Key here..." autocomplete="off">
+            <button class="btn-save" onclick="saveApiKey()">Initialize Adaptive Grid</button>
         </div>
     </div>
 
     <script>
-        // Default initial IDs matching your exact live links
-        const defaultIds = {
-            dzrh: "FxsfVX6B1Mk",
-            love: "GG9BLA8f3mo",
-            yes: "vicMAhyvyC8",
-            easy: "wuqlsrvO1kQ",
-            natin: ""
-        };
+        // Matrix scans and re-structures active configurations every 5 minutes
+        const REFRESH_INTERVAL = 5 * 60 * 1000; 
+        let apiKey = '';
+        let pollingTimer = null;
 
-        function getStoredIds() {
-            const stored = localStorage.getItem('yt_grid_vids');
-            return stored ? JSON.parse(stored) : defaultIds;
-        }
+        // VERIFIED MASTER TARGET ARRAYS
+        const stations = [
+            { id: "UCcTiBX8js_djhSSlmJRI99A" }, // DZRH News
+            { id: "UCBb8SMaygsCq8Mo0cJA0b9g" }, // Yes FM Manila
+            { id: "UC934DvzBQQnB5qBJpc50obg" }, // Love Radio Manila
+            { id: "UCZTlGPEnQ66TFG0m6Wa3KFQ" }, // Easy Rock Manila
+            { id: "UC0QVOF-110B26VaHK77jX9w" }  // Radyo Natin
+        ];
 
         function openModal() {
-            const current = getStoredIds();
-            document.getElementById('id-dzrh').value = current.dzrh || '';
-            document.getElementById('id-love').value = current.love || '';
-            document.getElementById('id-yes').value = current.yes || '';
-            document.getElementById('id-easy').value = current.easy || '';
-            document.getElementById('id-natin').value = current.natin || '';
+            document.getElementById('api-input').value = localStorage.getItem('matrix_api_key') || '';
             document.getElementById('api-modal').classList.add('active');
         }
+        function closeModal() { document.getElementById('api-modal').classList.remove('active'); }
 
-        function closeModal() {
-            document.getElementById('api-modal').classList.remove('active');
+        function saveApiKey() {
+            const val = document.getElementById('api-input').value.trim();
+            if(val) {
+                localStorage.setItem('matrix_api_key', val);
+                apiKey = val;
+                closeModal();
+                initializeSystemMatrix();
+            }
         }
 
-        function saveIds() {
-            const updated = {
-                dzrh: document.getElementById('id-dzrh').value.trim(),
-                love: document.getElementById('id-love').value.trim(),
-                yes: document.getElementById('id-yes').value.trim(),
-                easy: document.getElementById('id-easy').value.trim(),
-                natin: document.getElementById('id-natin').value.trim()
-            };
-            
-            localStorage.setItem('yt_grid_vids', JSON.stringify(updated));
-            closeModal();
-            renderGrid();
-        }
-
-        function renderGrid() {
-            const grid = document.getElementById('multiview-grid');
-            grid.innerHTML = '';
-            
-            const currentVids = getStoredIds();
-            let activeCount = 0;
-            
-            Object.keys(currentVids).forEach(key => {
-                const vidId = currentVids[key];
-                
-                // If a video ID is present, create a player frame container
-                if (vidId) {
-                    activeCount++;
-                    const box = document.createElement('div');
-                    box.className = 'video-box';
-                    
-                    // Unrestricted watch-link parameters bypass the embedding guardrails smoothly
-                    box.innerHTML = `
-                        <iframe 
-                            src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&modestbranding=1&rel=0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowfullscreen>
-                        </iframe>`;
-                    grid.appendChild(box);
+        // Live Deep-Scan Discovery Logic
+        async function fetchLiveVideoId(channelId) {
+            try {
+                let url = `https://www.googleapis.com/youtube/v3/search?part=id&channelId=${channelId}&type=video&eventType=live&key=${apiKey}`;
+                let res = await fetch(url);
+                let data = await res.json();
+                if (data.items && data.items.length > 0) {
+                    return data.items[0].id.videoId;
                 }
-            });
+            } catch (e) {
+                console.error("Tracking frame query dropped.");
+            }
+            return null;
+        }
+
+        async function updateGridData() {
+            if(!apiKey) return;
             
-            // Re-scale grid system dimensions instantly based on counts
-            grid.setAttribute('data-count', activeCount);
+            const matrixContainer = document.getElementById('monitor-matrix');
+            let activeChannels = [];
+
+            // Poll states sequentially
+            for (const station of stations) {
+                const liveId = await fetchLiveVideoId(station.id);
+                if (liveId) {
+                    activeChannels.push(liveId);
+                }
+            }
+
+            // Wipe out DOM tree and assign new responsive scale attributes
+            matrixContainer.innerHTML = ''; 
+            matrixContainer.setAttribute('data-count', activeChannels.length);
+
+            if(activeChannels.length === 0) {
+                matrixContainer.innerHTML = `<div style="grid-column: span 3; color: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 11px; letter-spacing: 2px; font-weight: bold; height: 100vh; width: 100vw; background: #000;">ALL CHANNELS OFFLINE</div>`;
+                return;
+            }
+
+            // Build out exactly matching responsive modules
+            activeChannels.forEach(videoId => {
+                const cellElement = document.createElement('div');
+                cellElement.className = 'video-box';
+                cellElement.innerHTML = `
+                    <iframe 
+                        src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&fs=0&disablekb=1" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen>
+                    </iframe>`;
+                matrixContainer.appendChild(cellElement);
+            });
+        }
+
+        function initializeSystemMatrix() {
+            if(pollingTimer) clearInterval(pollingTimer);
+            updateGridData();
+            pollingTimer = setInterval(updateGridData, REFRESH_INTERVAL);
         }
 
         window.onload = function() {
-            renderGrid();
+            const savedKey = localStorage.getItem('matrix_api_key');
+            if(savedKey) {
+                apiKey = savedKey;
+                initializeSystemMatrix();
+            } else {
+                openModal();
+            }
         };
     </script>
 </body>
