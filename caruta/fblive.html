@@ -103,7 +103,16 @@
 
         async function monitorLiveStream() {
             try {
-                const response = await fetch("https://r.jina.ai/https://www.facebook.com/dzrhnews/live_videos");
+                // Configured request with your custom API Token, cache override, and automated proxies
+                const response = await fetch("https://r.jina.ai/https://www.facebook.com/dzrhnews/live_videos", {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer jina_10e85b1c21ea4fbba0e76fa04247b313dx27XK3BBCmQ9ut-tvpQH0cjp4Af',
+                        'x-no-cache': 'true',
+                        'x-proxy': 'auto'
+                    }
+                });
+
                 if (!response.ok) throw new Error("Jina proxy unavailable");
                 
                 const pageText = await response.text();
