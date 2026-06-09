@@ -196,10 +196,9 @@
     </div>
 
     <script>
-        // Matrix scans and re-structures active configurations every 5 minutes
-        const REFRESH_INTERVAL = 5 * 60 * 1000; 
         let apiKey = '';
-        let pollingTimer = null;
+        let precisionClockTimer = null;
+        let executionBlockGate = false;
 
         // VERIFIED MASTER TARGET ARRAYS
         const stations = [
@@ -241,31 +240,18 @@
             return null;
         }
 
-        async function updateGridData() {
-            if(!apiKey) return;
-            
+        // Render Layout Based on Given Array
+        function renderMatrix(videoIds) {
             const matrixContainer = document.getElementById('monitor-matrix');
-            let activeChannels = [];
-
-            // Poll states sequentially
-            for (const station of stations) {
-                const liveId = await fetchLiveVideoId(station.id);
-                if (liveId) {
-                    activeChannels.push(liveId);
-                }
-            }
-
-            // Wipe out DOM tree and assign new responsive scale attributes
             matrixContainer.innerHTML = ''; 
-            matrixContainer.setAttribute('data-count', activeChannels.length);
+            matrixContainer.setAttribute('data-count', videoIds.length);
 
-            if(activeChannels.length === 0) {
+            if(videoIds.length === 0) {
                 matrixContainer.innerHTML = `<div style="grid-column: span 3; color: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 11px; letter-spacing: 2px; font-weight: bold; height: 100vh; width: 100vw; background: #000;">ALL CHANNELS OFFLINE</div>`;
                 return;
             }
 
-            // Build out exactly matching responsive modules
-            activeChannels.forEach(videoId => {
+            videoIds.forEach(videoId => {
                 const cellElement = document.createElement('div');
                 cellElement.className = 'video-box';
                 cellElement.innerHTML = `
@@ -278,10 +264,60 @@
             });
         }
 
+        async function updateGridData() {
+            if(!apiKey) return;
+            
+            let activeChannels = [];
+
+            // Poll states sequentially
+            for (const station of stations) {
+                const liveId = await fetchLiveVideoId(station.id);
+                if (liveId) {
+                    activeChannels.push(liveId);
+                }
+            }
+
+            // Save array coordinates into browser Storage layer
+            localStorage.setItem('matrix_active_video_ids', JSON.stringify(activeChannels));
+            
+            // Draw UI instantly
+            renderMatrix(activeChannels);
+        }
+
+        // Chrono Clock Calibration Module
+        function runChronometerFeedback() {
+            const now = new Date();
+            const currentMinute = now.getMinutes();
+            const currentSeconds = now.getSeconds();
+
+            // Trigger window checks at strictly XX:05:00 and XX:35:00
+            if ((currentMinute === 5 || currentMinute === 35) && currentSeconds === 0) {
+                if (!executionBlockGate) {
+                    executionBlockGate = true; // Lock execution block to prevent race conditions
+                    updateGridData();
+                }
+            } else {
+                executionBlockGate = false; // Reset lock outside the trigger window
+            }
+        }
+
         function initializeSystemMatrix() {
-            if(pollingTimer) clearInterval(pollingTimer);
-            updateGridData();
-            pollingTimer = setInterval(updateGridData, REFRESH_INTERVAL);
+            if(precisionClockTimer) clearInterval(precisionClockTimer);
+            
+            // Check if cached stream states exist to load them instantly
+            const cachedIds = localStorage.getItem('matrix_active_video_ids');
+            if (cachedIds) {
+                try {
+                    renderMatrix(JSON.parse(cachedIds));
+                } catch(e) {
+                    updateGridData();
+                }
+            } else {
+                updateGridData();
+            }
+
+            // Fire synchronization monitor at 1-second interval checkpoints
+            precisionClockTimer = setInterval(runChronometerFeedback, 1000);
         }
 
         window.onload = function() {
