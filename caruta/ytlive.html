@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Grid</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #000;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        /* Dynamic Grid Layout */
+        .grid-container {
+            display: grid;
+            width: 100%;
+            height: 100%;
+            gap: 2px; /* Tiny gap to separate screens cleanly */
+            background-color: #111;
+        }
+
+        /* Responsive grid configurations based on active stream count */
+        .grid-container[data-count="1"] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+        .grid-container[data-count="2"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+        .grid-container[data-count="3"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        .grid-container[data-count="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        .grid-container[data-count="5"] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; }
+
+        @media (max-width: 768px) {
+            .grid-container[data-count="2"] { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+            .grid-container[data-count="3"] { grid-template-columns: 1fr; grid-template-rows: repeat(3, 1fr); }
+            .grid-container[data-count="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+            .grid-container[data-count="5"] { grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, 1fr); }
+        }
+
+        .video-box {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+        .video-box iframe {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: none;
+        }
+
+        /* Floating Semi-Transparent Pencil Button */
+        .api-btn {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 1000;
+            background: rgba(250, 250, 250, 0.2);
+            color: rgba(255, 255, 255, 0.6);
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+        }
+        .api-btn:hover {
+            background: rgba(255, 255, 255, 0.9);
+            color: #121212;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .api-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* Modal Overlay & Configuration Styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 2000; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-content {
+            background: #1e1e1e; 
+            padding: 25px; 
+            border-radius: 8px;
+            width: 90%; 
+            max-width: 500px; 
+            text-align: left; 
+            color: white;
+            border: 1px solid #333;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .modal-content h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .stream-input-group {
+            margin-bottom: 12px;
+        }
+        .stream-input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+        .stream-input-group input {
+            width: 100%; padding: 10px;
+            background: #2a2a2a; border: 1px solid #444;
+            color: white; border-radius: 4px; outline: none;
+            font-size: 0.9rem;
+        }
+        .stream-input-group input:focus {
+            border-color: #2979ff;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: bold;
+            border: none;
+        }
+        .btn-save {
+            background: #2979ff; color: white;
+        }
+        .btn-save:hover {
+            background: #1565c0;
+        }
+        .btn-cancel {
+            background: #444; color: #aaa;
+        }
+        .btn-cancel:hover {
+            background: #555; color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <button class="api-btn" onclick="openModal()" title="Update Stream IDs">
+        <svg viewBox="0 0 24 24">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+    </button>
+    
+    <div class="grid-container" id="multiview-grid" data-count="0"></div>
+
+    <div class="modal-overlay" id="api-modal">
+        <div class="modal-content">
+            <h3>Update Active Stream Video IDs</h3>
+            <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 15px; text-align: center;">Leave a field blank to temporarily hide that station from the monitor grid.</p>
+            
+            <div class="stream-input-group">
+                <label>DZRH TV Video ID:</label>
+                <input type="text" id="id-dzrh" placeholder="e.g., FxsfVX6B1Mk">
+            </div>
+            <div class="stream-input-group">
+                <label>Love Radio Manila Video ID:</label>
+                <input type="text" id="id-love" placeholder="e.g., GG9BLA8f3mo">
+            </div>
+            <div class="stream-input-group">
+                <label>Yes FM Manila 101.1 Video ID:</label>
+                <input type="text" id="id-yes" placeholder="e.g., vicMAhyvyC8">
+            </div>
+            <div class="stream-input-group">
+                <label>Easy Rock Manila Video ID:</label>
+                <input type="text" id="id-easy" placeholder="e.g., wuqlsrvO1kQ">
+            </div>
+            <div class="stream-input-group">
+                <label>Radyo Natin Video ID:</label>
+                <input type="text" id="id-natin" placeholder="Leave blank if offline">
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-save" onclick="saveIds()">Apply & Render</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default initial IDs matching your exact live links
+        const defaultIds = {
+            dzrh: "FxsfVX6B1Mk",
+            love: "GG9BLA8f3mo",
+            yes: "vicMAhyvyC8",
+            easy: "wuqlsrvO1kQ",
+            natin: ""
+        };
+
+        function getStoredIds() {
+            const stored = localStorage.getItem('yt_grid_vids');
+            return stored ? JSON.parse(stored) : defaultIds;
+        }
+
+        function openModal() {
+            const current = getStoredIds();
+            document.getElementById('id-dzrh').value = current.dzrh || '';
+            document.getElementById('id-love').value = current.love || '';
+            document.getElementById('id-yes').value = current.yes || '';
+            document.getElementById('id-easy').value = current.easy || '';
+            document.getElementById('id-natin').value = current.natin || '';
+            document.getElementById('api-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('api-modal').classList.remove('active');
+        }
+
+        function saveIds() {
+            const updated = {
+                dzrh: document.getElementById('id-dzrh').value.trim(),
+                love: document.getElementById('id-love').value.trim(),
+                yes: document.getElementById('id-yes').value.trim(),
+                easy: document.getElementById('id-easy').value.trim(),
+                natin: document.getElementById('id-natin').value.trim()
+            };
+            
+            localStorage.setItem('yt_grid_vids', JSON.stringify(updated));
+            closeModal();
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('multiview-grid');
+            grid.innerHTML = '';
+            
+            const currentVids = getStoredIds();
+            let activeCount = 0;
+            
+            Object.keys(currentVids).forEach(key => {
+                const vidId = currentVids[key];
+                
+                // If a video ID is present, create a player frame container
+                if (vidId) {
+                    activeCount++;
+                    const box = document.createElement('div');
+                    box.className = 'video-box';
+                    
+                    // Unrestricted watch-link parameters bypass the embedding guardrails smoothly
+                    box.innerHTML = `
+                        <iframe 
+                            src="https://www.youtube.com/embed/${vidId}?autoplay=1&mute=1&modestbranding=1&rel=0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                        </iframe>`;
+                    grid.appendChild(box);
+                }
+            });
+            
+            // Re-scale grid system dimensions instantly based on counts
+            grid.setAttribute('data-count', activeCount);
+        }
+
+        window.onload = function() {
+            renderGrid();
+        };
+    </script>
+</body>
+</html>
