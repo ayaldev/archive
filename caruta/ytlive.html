@@ -3,332 +3,295 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Automated Fluid Monitor Matrix</title>
+    <title>Live Broadcast Monitor Grid</title>
     <style>
-        /* Matrix Rules: Absolute zero gaps for streams */
-        * {
-            box-sizing: border-box;
-        }
-        body, html {
-            background-color: #000;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
+        /* Force structural containment across absolute window dimensions */
+        html, body {
             margin: 0;
             padding: 0;
-        }
-        
-        /* Seamless Edge-to-Edge Fluid Grid Matrix */
-        .grid-container {
-            display: grid;
             width: 100%;
             height: 100%;
-            gap: 0px;
-            padding: 0;
-            margin: 0;
+            background-color: #000;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        /* Matrix Setup - Default to 1 column for mobile viewports */
+        .monitor-matrix {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-auto-rows: 1fr;
+            width: 100vw;
+            height: 100vh;
             background-color: #000;
         }
 
-        /* Layout State Handlers based on Active Channel Count */
-        .grid-container[data-count="1"] { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-        .grid-container[data-count="2"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
-        .grid-container[data-count="3"] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr; }
-        .grid-container[data-count="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-        .grid-container[data-count="5"] { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; }
-
-        @media (max-width: 768px) {
-            .grid-container[data-count="2"], 
-            .grid-container[data-count="3"], 
-            .grid-container[data-count="4"], 
-            .grid-container[data-count="5"] {
-                grid-template-columns: 1fr;
-                grid-template-rows: repeat(auto-fit, minmax(20vh, 1fr));
+        /* Desktop Optimization: Forces a strict 2x2 grid split on standard viewports */
+        @media (min-width: 800px) {
+            .monitor-matrix {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(2, 1fr);
             }
         }
 
-        .video-box {
+        /* Borderless responsive cell windows with perfect center alignment physics */
+        .monitor-cell {
             position: relative;
             width: 100%;
             height: 100%;
-            background: #000;
-            margin: 0;
-            padding: 0;
-        }
-        .video-box iframe {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            border: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        /* Fully Translucent Key Access Interface Node (Hover bottom right to view) */
-        .api-btn {
-            position: fixed;
-            bottom: 15px;
-            right: 15px;
-            z-index: 1000;
-            background: rgba(20, 20, 20, 0.4);
-            color: rgba(255, 255, 255, 0.3);
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            cursor: pointer;
+            background-color: #111;
+            box-sizing: border-box;
+            border: 1px solid #1a1a1a;
+            
+            /* Enforce vertical and horizontal centering layout rules */
             display: flex;
-            align-items: center;
             justify-content: center;
-            opacity: 0;
-            transition: opacity 0.2s ease, background 0.2s;
-        }
-        body:hover .api-btn { opacity: 1; }
-        .api-btn:hover { background: #2979ff; color: #fff; }
-        .api-btn svg { width: 16px; height: 16px; fill: currentColor; }
-
-        /* Configuration Console Pop-up with Padding & Margin Layouts */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 2000; opacity: 0; pointer-events: none;
-            transition: opacity 0.2s ease;
-        }
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        
-        .modal-content {
-            background: #111; 
-            padding: 30px; 
-            margin: 20px;
-            border-radius: 12px;
-            width: 100%; 
-            max-width: 440px; 
-            color: #fff; 
-            border: 1px solid #252525;
-            font-family: Arial, sans-serif;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .modal-content h3 { 
-            text-align: center; 
-            margin-bottom: 20px; 
-            font-size: 1.2rem;
-            letter-spacing: 0.5px;
+            align-items: center;
         }
 
-        /* Instruction Block Spacing */
-        .instructions {
-            background: #161616;
-            border-left: 3px solid #2979ff;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            line-height: 1.45;
-            color: #ccc;
-        }
-        .instructions ol {
-            padding-left: 18px;
-            margin-top: 8px;
-        }
-        .instructions li {
-            margin-bottom: 6px;
-        }
-        .instructions li strong {
-            color: #fff;
+        /* Retain video viewport layout constraints cleanly */
+        .video-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        .modal-content input {
-            width: 100%; 
-            padding: 12px 14px; 
-            margin-bottom: 20px;
-            background: #1a1a1a; 
-            border: 1px solid #333;
-            color: white; 
-            border-radius: 6px; 
-            outline: none; 
-            font-size: 0.9rem;
-        }
-        .modal-content input:focus { 
-            border-color: #2979ff; 
-        }
-        .btn-save {
-            width: 100%; 
-            padding: 14px; 
-            background: #2979ff; 
-            color: white; 
-            border-radius: 6px; 
-            cursor: pointer;
-            font-size: 0.95rem; 
-            font-weight: bold; 
+        iframe {
             border: none;
-            transition: background 0.2s;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
-        .btn-save:hover {
-            background: #1565c0;
+
+        /* Transparent Manual Refresh Override Trigger Button */
+        .manual-refresh-trigger {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            background-color: rgba(30, 30, 30, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            color: #ffffff;
+            cursor: pointer;
+            z-index: 99999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            
+            /* Keep completely hidden/transparent natively to avoid blocking video text or logos */
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        /* Fade into clear sight immediately when hovered by system cursor */
+        .manual-refresh-trigger:hover {
+            opacity: 0.7;
+            background-color: rgba(255, 0, 0, 0.9);
+            border-color: transparent;
+        }
+
+        /* Slight physical bounce feedback loop when compressed */
+        .manual-refresh-trigger:active {
+            transform: scale(0.92);
+        }
+
+        /* Mini inline SVG refresh layout graphics loop */
+        .refresh-icon {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Inline minimal cell status spinner */
+        .cell-loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0f0f0f;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #666;
+            font-size: 11px;
+            letter-spacing: 1px;
+            z-index: 10;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top: 2px solid #ff0000;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
 
-    <button class="api-btn" onclick="openModal()" title="System Key Access">
-        <svg viewBox="0 0 24 24"><path d="M12.65 10C11.83 7.59 9.54 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.54 0 4.83-1.59 5.65-4H17v3h3v-3h3v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+    <button class="manual-refresh-trigger" id="ui-refresh" title="Force Refresh Channels Instantly">
+        <svg class="refresh-icon" viewBox="0 0 24 24">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l6.73-6.19"/>
+        </svg>
     </button>
-    
-    <div class="grid-container" id="monitor-matrix"></div>
 
-    <div class="modal-overlay" id="api-modal">
-        <div class="modal-content">
-            <h3>System Framework Setup</h3>
-            
-            <div class="instructions">
-                <strong>How to get a free YouTube API Key:</strong>
-                <ol>
-                    <li>Go to the <strong>Google Cloud Console</strong>.</li>
-                    <li>Create a new project and select it.</li>
-                    <li>Navigate to <strong>API Library</strong> and search for <strong>YouTube Data API v3</strong>, then click <strong>Enable</strong>.</li>
-                    <li>Go to the <strong>Credentials</strong> tab, click <strong>+ Create Credentials</strong>, and select <strong>API key</strong>.</li>
-                </ol>
-            </div>
-
-            <input type="text" id="api-input" placeholder="Paste your AIzaSy Key here..." autocomplete="off">
-            <button class="btn-save" onclick="saveApiKey()">Initialize Adaptive Grid</button>
-        </div>
-    </div>
+    <div class="monitor-matrix" id="matrix-grid"></div>
 
     <script>
-        let apiKey = '';
-        let precisionClockTimer = null;
-        let executionBlockGate = false;
-
-        // VERIFIED MASTER TARGET ARRAYS
-        const stations = [
-            { id: "UCcTiBX8js_djhSSlmJRI99A" }, // DZRH News
-            { id: "UCBb8SMaygsCq8Mo0cJA0b9g" }, // Yes FM Manila
-            { id: "UC934DvzBQQnB5qBJpc50obg" }, // Love Radio Manila
-            { id: "UCZTlGPEnQ66TFG0m6Wa3KFQ" }, // Easy Rock Manila
-            { id: "UC0QVOF-110B26VaHK77jX9w" }  // Radyo Natin
+        // Data model containing explicit target layout configurations
+        const CHANNELS = [
+            { id: "dzrh", name: "DZRH TV", handle: "@DZRHTV", fallbackChannelId: "UC85_5cHzS_Vp9YgqR_wep3w" },
+            { id: "love", name: "Love Radio", handle: "@Loveradiomanila", fallbackChannelId: "UC8_v3mS8ZJvjYg-8U9VwS7A" },
+            { id: "yes", name: "Yes FM", handle: "@yesfmmanila1011", fallbackChannelId: "UCzD_S_zE6K_1R0C2w2S7jHA" },
+            { id: "easyrock", name: "Easy Rock", handle: "@EasyRockManila", fallbackChannelId: "UC37Xn8mN6H8CgC66P2R_1Ag" }
         ];
 
-        function openModal() {
-            document.getElementById('api-input').value = localStorage.getItem('matrix_api_key') || '';
-            document.getElementById('api-modal').classList.add('active');
-        }
-        function closeModal() { document.getElementById('api-modal').classList.remove('active'); }
+        // Flag to prevent double execution within the exact same target minute loop
+        let hasExecutedThisMinute = false;
 
-        function saveApiKey() {
-            const val = document.getElementById('api-input').value.trim();
-            if(val) {
-                localStorage.setItem('matrix_api_key', val);
-                apiKey = val;
-                closeModal();
-                initializeSystemMatrix();
-            }
-        }
-
-        // Live Deep-Scan Discovery Logic
-        async function fetchLiveVideoId(channelId) {
-            try {
-                let url = `https://www.googleapis.com/youtube/v3/search?part=id&channelId=${channelId}&type=video&eventType=live&key=${apiKey}`;
-                let res = await fetch(url);
-                let data = await res.json();
-                if (data.items && data.items.length > 0) {
-                    return data.items[0].id.videoId;
-                }
-            } catch (e) {
-                console.error("Tracking frame query dropped.");
-            }
-            return null;
-        }
-
-        // Render Layout Based on Given Array
-        function renderMatrix(videoIds) {
-            const matrixContainer = document.getElementById('monitor-matrix');
-            matrixContainer.innerHTML = ''; 
-            matrixContainer.setAttribute('data-count', videoIds.length);
-
-            if(videoIds.length === 0) {
-                matrixContainer.innerHTML = `<div style="grid-column: span 3; color: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 11px; letter-spacing: 2px; font-weight: bold; height: 100vh; width: 100vw; background: #000;">ALL CHANNELS OFFLINE</div>`;
-                return;
-            }
-
-            videoIds.forEach(videoId => {
-                const cellElement = document.createElement('div');
-                cellElement.className = 'video-box';
-                cellElement.innerHTML = `
-                    <iframe 
-                        src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&fs=0&disablekb=1" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen>
-                    </iframe>`;
-                matrixContainer.appendChild(cellElement);
+        // Core compilation generator mapping monitoring channels out to viewcells
+        function initMatrix() {
+            const grid = document.getElementById('matrix-grid');
+            grid.innerHTML = ''; // Wipe matrix array fields clean upon reload execution
+            
+            CHANNELS.forEach(channel => {
+                const cell = document.createElement('div');
+                cell.className = 'monitor-cell';
+                cell.id = `cell-${channel.id}`;
+                
+                cell.innerHTML = `
+                    <div class="cell-loader" id="loader-${channel.id}">
+                        <div class="spinner"></div>
+                        <div>SYNCING FEED</div>
+                    </div>
+                    <div class="video-container" id="player-${channel.id}"></div>
+                `;
+                grid.appendChild(cell);
+                
+                // Fire dynamic parse worker loops concurrently
+                processChannelFeed(channel);
             });
         }
 
-        async function updateGridData() {
-            if(!apiKey) return;
-            
-            let activeChannels = [];
+        async function processChannelFeed(channel) {
+            // Generate distinct, individual anti-cache signatures per container process loop
+            const timestamp = Date.now();
+            const randomString = Math.random().toString(36).substring(2, 15);
+            const cacheBuster = `?updated=${timestamp}+${randomString}`;
 
-            // Poll states sequentially
-            for (const station of stations) {
-                const liveId = await fetchLiveVideoId(station.id);
-                if (liveId) {
-                    activeChannels.push(liveId);
+            const targetUrl = `https://www.youtube.com/${channel.handle}/featured${cacheBuster}`;
+            const jinaApiEndpoint = `https://r.jina.ai/${targetUrl}`;
+
+            try {
+                const response = await fetch(jinaApiEndpoint);
+                if (!response.ok) throw new Error('Jina endpoint unreachable');
+                
+                const markdownText = await response.text();
+
+                // Advanced multi-pattern match strategy without hardcoded content dependencies
+                const standardYtRegex = /(?:v=|embed\/|watch\?v=|vi\/|youtu\.be\/|\/shorts\/|vi_webp\/)([a-zA-Z0-9_-]{11})/;
+                const thumbnailRegex = /\/vi\/([a-zA-Z0-9_-]{11})\/(?:maxresdefault|hqdefault|mqdefault)\.jpg/;
+
+                let liveVideoId = null;
+                const standardMatch = markdownText.match(standardYtRegex);
+                const thumbnailMatch = markdownText.match(thumbnailRegex);
+
+                if (standardMatch && standardMatch[1]) {
+                    liveVideoId = standardMatch[1];
+                } else if (thumbnailMatch && thumbnailMatch[1]) {
+                    liveVideoId = thumbnailMatch[1];
                 }
-            }
 
-            // Save array coordinates into browser Storage layer
-            localStorage.setItem('matrix_active_video_ids', JSON.stringify(activeChannels));
-            
-            // Draw UI instantly
-            renderMatrix(activeChannels);
+                // Inject extracted active stream video, or route to fallback
+                if (liveVideoId) {
+                    injectIframe(channel.id, `https://www.youtube.com/embed/${liveVideoId}?autoplay=1&mute=1&rel=0&controls=1`);
+                } else {
+                    injectFallback(channel);
+                }
+            } catch (err) {
+                console.warn(`Parsing missed for ${channel.name}, applying live API fallback rule:`, err);
+                injectFallback(channel);
+            }
         }
 
-        // Chrono Clock Calibration Module
-        function runChronometerFeedback() {
-            const now = new Date();
-            const currentMinute = now.getMinutes();
-            const currentSeconds = now.getSeconds();
-
-            // Trigger window checks at strictly XX:05:00 and XX:35:00
-            if ((currentMinute === 5 || currentMinute === 35) && currentSeconds === 0) {
-                if (!executionBlockGate) {
-                    executionBlockGate = true; // Lock execution block to prevent race conditions
-                    updateGridData();
-                }
-            } else {
-                executionBlockGate = false; // Reset lock outside the trigger window
-            }
-        }
-
-        function initializeSystemMatrix() {
-            if(precisionClockTimer) clearInterval(precisionClockTimer);
+        function injectIframe(channelId, srcUrl) {
+            const container = document.getElementById(`player-${channelId}`);
+            const loader = document.getElementById(`loader-${channelId}`);
             
-            // Check if cached stream states exist to load them instantly
-            const cachedIds = localStorage.getItem('matrix_active_video_ids');
-            if (cachedIds) {
-                try {
-                    renderMatrix(JSON.parse(cachedIds));
-                } catch(e) {
-                    updateGridData();
-                }
-            } else {
-                updateGridData();
-            }
+            const iframe = document.createElement('iframe');
+            iframe.src = srcUrl;
+            iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+            iframe.allowFullscreen = true;
 
-            // Fire synchronization monitor at 1-second interval checkpoints
-            precisionClockTimer = setInterval(runChronometerFeedback, 1000);
+            container.appendChild(iframe);
+
+            // Transition loader out cleanly when frame is added
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.remove(), 400);
+            }
         }
 
-        window.onload = function() {
-            const savedKey = localStorage.getItem('matrix_api_key');
-            if(savedKey) {
-                apiKey = savedKey;
-                initializeSystemMatrix();
-            } else {
-                openModal();
-            }
-        };
+        function injectFallback(channel) {
+            // Native platform parameters that lock onto live broadcasts automatically via internal API indices
+            const nativeLiveUrl = `https://www.youtube.com/embed/live_stream?channel=${channel.fallbackChannelId}&autoplay=1&mute=1`;
+            injectIframe(channel.id, nativeLiveUrl);
+        }
+
+        // Clock Monitoring System - Checks times every second for automated cron loops
+        function manageScheduleEngine() {
+            setInterval(() => {
+                const currentClock = new Date();
+                const currentMinutes = currentClock.getMinutes();
+
+                // Check explicitly for target minute marks (:05 and :35)
+                if (currentMinutes === 5 || currentMinutes === 35) {
+                    if (!hasExecutedThisMinute) {
+                        console.log(`[Scheduled Clock Sync Triggered] Syncing matrix streams at minute mark: ${currentMinutes}`);
+                        hasExecutedThisMinute = true;
+                        initMatrix(); // Refresh the monitoring matrix feeds
+                    }
+                } else {
+                    // Reset safety latch once the clock advances off the schedule boundary marks
+                    hasExecutedThisMinute = false;
+                }
+            }, 1000); // 1-second pulse checks keep operations lightweight but hyper-precise
+        }
+
+        // Event Listeners initialization
+        window.addEventListener('DOMContentLoaded', () => {
+            initMatrix();
+            manageScheduleEngine();
+            
+            // Wire manual UI override action link
+            document.getElementById('ui-refresh').addEventListener('click', () => {
+                console.log('[Manual User Sync Overrule Handled]');
+                initMatrix();
+            });
+        });
     </script>
 </body>
 </html>
