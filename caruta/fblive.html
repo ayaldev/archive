@@ -100,8 +100,23 @@
     <script>
         const absoluteFallbackId = "27510793398513558"; 
         
-        // Load index cache from localStorage immediately
+        // Load cached index from localStorage right away
         let currentVideoId = localStorage.getItem("last_fb_video_id") || absoluteFallbackId;
+
+        // Generates an exact MMDDYYHHMMSS string matching your exact format requirements
+        function getFormattedTimestamp() {
+            const now = new Date();
+            
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const year = String(now.getFullYear()).slice(-2); // Gets last two digits of year (e.g., '26')
+            
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            return `${month}${day}${year}${hours}${minutes}${seconds}`;
+        }
 
         function triggerAlarmSound() {
             try {
@@ -124,10 +139,13 @@
         }
 
         async function fetchLatestStreamFromJina() {
-            console.log(`Executing fetch check at: ${new Date().toLocaleTimeString()}`);
+            const timestamp = getFormattedTimestamp();
+            const targetUrl = `https://r.jina.ai/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
+            
+            console.log(`Executing fetch check via: ${targetUrl}`);
+            
             try {
-                // Completely removed 'x-no-cache' and 'x-proxy' to bypass 401 error tier blocks
-                const response = await fetch("https://r.jina.ai/https://www.facebook.com/dzrhnews/live_videos");
+                const response = await fetch(targetUrl);
 
                 if (!response.ok) throw new Error(`Jina response failed with status: ${response.status}`);
                 
@@ -151,7 +169,7 @@
                     }
                 }
             } catch (error) {
-                console.warn("Anonymous Jina fetch execution failed:", error);
+                console.warn("Jina fetch execution failed:", error);
             }
         }
 
@@ -185,12 +203,12 @@
             }
         }
 
-        // Attach override click handler to floating layout element
+        // Manual override layout interaction button
         document.getElementById('manual-refresh').addEventListener('click', () => {
             fetchLatestStreamFromJina();
         });
 
-        // 1. Initial Render: Pull from LocalStorage immediately so it loads without delay
+        // 1. Initial Render: Mount stored asset immediately
         deployIframe(currentVideoId);
 
         // 2. Ticker loop activation
