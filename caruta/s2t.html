@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Captioner</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #ffffff;
+            --interim-color: #888888;
+            --font-size: 4.5rem;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 3rem;
+        }
+
+        /* Controls Panel */
+        #controls {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 0.75rem;
+            border-radius: 6px;
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s ease;
+            opacity: 1;
+        }
+
+        #controls.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        button, select {
+            background: #252525;
+            color: white;
+            border: 1px solid #444;
+            padding: 0.6rem 1.2rem;
+            font-size: 0.95rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover, select:hover { background: #353535; }
+        button.active { background: #cc2929; border-color: #cc2929; }
+
+        /* Caption Presentation */
+        #caption-container {
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            font-size: var(--font-size);
+            font-weight: 700;
+            line-height: 1.4;
+            letter-spacing: -0.5px;
+        }
+
+        /* Hide scrollbars */
+        #caption-container::-webkit-scrollbar { width: 0px; background: transparent; }
+
+        #caption-wrapper {
+            display: inline;
+            word-wrap: break-word;
+        }
+
+        .interim {
+            color: var(--interim-color);
+        }
+
+        /* Clean Pop/Type Animation for Incoming Words */
+        .word {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(8px);
+            animation: wordReveal 0.18s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+            margin-right: 0.24ch;
+        }
+
+        @keyframes wordReveal {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <button id="start-btn">Start Captioning</button>
+        <select id="audio-select">
+            <option value="">Detecting Audio Inputs...</option>
+        </select>
+        <select id="size-select">
+            <option value="3rem">Small</option>
+            <option value="4.5rem" selected>Medium</option>
+            <option value="6rem">Large</option>
+            <option value="7.5rem">X-Large</option>
+        </select>
+        <button id="fullscreen-btn">Fullscreen</button>
+    </div>
+
+    <div id="caption-container">
+        <div id="caption-wrapper"><span class="interim" id="interim-span"></span></div>
+    </div>
+
+    <script>
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("This application requires a Chromium browser (Google Chrome, Microsoft Edge, or Opera).");
+        }
+
+        const startBtn = document.getElementById('start-btn');
+        const audioSelect = document.getElementById('audio-select');
+        const sizeSelect = document.getElementById('size-select');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const controls = document.getElementById('controls');
+        const container = document.getElementById('caption-container');
+        const wrapper = document.getElementById('caption-wrapper');
+        const interimSpan = document.getElementById('interim-span');
+
+        let recognition;
+        let isListening = false;
+        let controlTimeout;
+
+        // Populate System Audio Input Devices
+        async function getAudioSources() {
+            try {
+                // Trigger quick permission prompt to read actual hardware labels
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                
+                audioSelect.innerHTML = '<option value="default">Default System Audio Input</option>';
+                
+                devices.forEach(device => {
+                    if (device.kind === 'audioinput') {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        // This will show your virtual NDI / Cable devices if active
+                        option.text = device.label || `Audio Input ${audioSelect.length}`;
+                        audioSelect.appendChild(option);
+                    }
+                });
+            } catch (e) {
+                audioSelect.innerHTML = '<option value="">Microphone Access Denied</option>';
+            }
+        }
+
+        function initRecognition() {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isListening = true;
+                startBtn.textContent = 'Stop Captioning';
+                startBtn.classList.add('active');
+            };
+
+            recognition.onend = () => {
+                // Keep the engine alive if it times out naturally
+                if (isListening) recognition.start();
+                else {
+                    startBtn.textContent = 'Start Captioning';
+                    startBtn.classList.remove('active');
+                }
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    const result = event.results[i];
+                    if (result.isFinal) {
+                        appendAnimatedWords(result[0].transcript);
+                    } else {
+                        interimTranscript += result[0].transcript;
+                    }
+                }
+                interimSpan.textContent = interimTranscript;
+                container.scrollTop = container.scrollHeight;
+            };
+        }
+
+        function appendAnimatedWords(text) {
+            if (!text.trim()) return;
+            
+            const words = text.trim().split(/\s+/);
+            words.forEach(word => {
+                const span = document.createElement('span');
+                span.className = 'word';
+                span.textContent = word;
+                wrapper.insertBefore(span, interimSpan);
+            });
+            
+            // Appends standard punctuation spaces
+            const space = document.createTextNode(' ');
+            wrapper.insertBefore(space, interimSpan);
+
+            // Prevent browser lag during long production runs
+            if (wrapper.childNodes.length > 400) {
+                for (let i = 0; i < 40; i++) {
+                    if (wrapper.firstChild && wrapper.firstChild !== interimSpan) {
+                        wrapper.removeChild(wrapper.firstChild);
+                    }
+                }
+            }
+            container.scrollTop = container.scrollHeight;
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (!recognition) initRecognition();
+
+            if (isListening) {
+                isListening = false;
+                recognition.stop();
+            } else {
+                // Chrome links WebSpeech directly to your OS system default device.
+                // Selecting an input device here updates the WebAudio context handle.
+                const deviceId = audioSelect.value;
+                const constraints = deviceId && deviceId !== 'default' ? { audio: { deviceId: { exact: deviceId } } } : { audio: true };
+
+                navigator.mediaDevices.getUserMedia(constraints)
+                    .then(() => recognition.start())
+                    .catch(err => alert("Audio selection error: " + err.message));
+            }
+        });
+
+        sizeSelect.addEventListener('change', (e) => {
+            document.documentElement.style.setProperty('--font-size', e.target.value);
+            container.scrollTop = container.scrollHeight;
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        });
+
+        // Hide UI controls automatically during presentations/streams
+        function hideControlsWatcher() {
+            controls.classList.remove('hidden');
+            clearTimeout(controlTimeout);
+            controlTimeout = setTimeout(() => {
+                if (isListening && !document.activeElement.matches('select')) {
+                    controls.classList.add('hidden');
+                }
+            }, 3000);
+        }
+        window.addEventListener('mousemove', hideControlsWatcher);
+        window.addEventListener('click', hideControlsWatcher);
+        
+        getAudioSources();
+    </script>
+</body>
+</html>
