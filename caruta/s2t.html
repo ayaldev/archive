@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stream Captioner</title>
+    <title>Instant Complete-Word Captioner</title>
     <style>
         :root {
-            --bg-color: #121212;
+            --bg-color: #0b0b0b;
             --text-color: #ffffff;
-            --interim-color: #888888;
             --font-size: 4.5rem;
         }
 
@@ -27,57 +26,39 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            padding: 3rem;
+            position: relative;
         }
 
-        /* Controls Panel */
-        #controls {
+        /* Fullscreen Background Waveform Canvas */
+        #audio-monitor {
             position: absolute;
-            top: 1rem;
-            left: 1rem;
-            right: 1rem;
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            z-index: 10;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 0.75rem;
-            border-radius: 6px;
-            backdrop-filter: blur(5px);
-            transition: opacity 0.3s ease;
-            opacity: 1;
-        }
-
-        #controls.hidden {
-            opacity: 0;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 25vh;
+            z-index: 1;
             pointer-events: none;
+            opacity: 0.35;
         }
 
-        button, select {
-            background: #252525;
-            color: white;
-            border: 1px solid #444;
-            padding: 0.6rem 1.2rem;
-            font-size: 0.95rem;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        button:hover, select:hover { background: #353535; }
-        button.active { background: #cc2929; border-color: #cc2929; }
-
-        /* Caption Presentation */
+        /* Caption Presentation Space - Expanded to take full height */
         #caption-container {
             width: 100%;
-            max-height: 80vh;
+            height: 100vh;
             overflow-y: auto;
             font-size: var(--font-size);
             font-weight: 700;
-            line-height: 1.4;
+            line-height: 1.3;
             letter-spacing: -0.5px;
+            z-index: 2; /* Sits below buttons but above background canvas */
+            
+            /* Crucial Layout Alignment Adjustments */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; 
+            padding: 7rem 3rem 4rem 3rem; /* Generous 7rem top padding keeps text clear of buttons */
         }
 
-        /* Hide scrollbars */
         #caption-container::-webkit-scrollbar { width: 0px; background: transparent; }
 
         #caption-wrapper {
@@ -85,194 +66,317 @@
             word-wrap: break-word;
         }
 
-        .interim {
-            color: var(--interim-color);
-        }
-
-        /* Clean Pop/Type Animation for Incoming Words */
+        /* Ultra-Fast Typing Animation */
         .word {
             display: inline-block;
             opacity: 0;
-            transform: translateY(8px);
-            animation: wordReveal 0.18s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+            transform: scale(0.95) translateY(4px);
+            animation: instantWord 0.06s cubic-bezier(0, 0, 0.2, 1) forwards;
             margin-right: 0.24ch;
         }
 
-        @keyframes wordReveal {
+        @keyframes instantWord {
             to {
                 opacity: 1;
-                transform: translateY(0);
+                transform: scale(1) translateY(0);
             }
+        }
+
+        /* Status Indicator */
+        #status-indicator {
+            position: absolute;
+            bottom: 28vh;
+            left: 3rem;
+            font-size: 1.8rem;
+            color: #444;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: pulse 1.8s infinite ease-in-out;
+            transition: opacity 0.2s ease;
+            z-index: 3;
+        }
+
+        #status-indicator.hidden { opacity: 0; pointer-events: none; }
+
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+            100% { opacity: 0.3; }
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            background-color: #00ffcc;
+            border-radius: 50%;
+        }
+
+        /* Floating Circular Control Array - Forced over everything */
+        #floating-controls {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 100; /* Master Layer Priority override */
+            transition: opacity 0.3s ease;
+        }
+
+        #floating-controls.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .btn-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(30, 30, 30, 0.85);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-circle:hover {
+            background: rgba(50, 50, 50, 0.95);
+            transform: scale(1.05);
         }
     </style>
 </head>
 <body>
 
-    <div id="controls">
-        <button id="start-btn">Start Captioning</button>
-        <select id="audio-select">
-            <option value="">Detecting Audio Inputs...</option>
-        </select>
-        <select id="size-select">
-            <option value="3rem">Small</option>
-            <option value="4.5rem" selected>Medium</option>
-            <option value="6rem">Large</option>
-            <option value="7.5rem">X-Large</option>
-        </select>
-        <button id="fullscreen-btn">Fullscreen</button>
+    <canvas id="audio-monitor"></canvas>
+
+    <div id="floating-controls">
+        <button class="btn-circle" id="zoom-in-btn" title="Increase Text Size">+</button>
+        <button class="btn-circle" id="zoom-out-btn" title="Decrease Text Size">−</button>
+        <button class="btn-circle" id="fullscreen-btn" title="Toggle Fullscreen">⛶</button>
     </div>
 
+    <div id="status-indicator"><div class="dot"></div>Waiting for audio...</div>
+
     <div id="caption-container">
-        <div id="caption-wrapper"><span class="interim" id="interim-span"></span></div>
+        <div id="caption-wrapper"></div>
     </div>
 
     <script>
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            alert("This application requires a Chromium browser (Google Chrome, Microsoft Edge, or Opera).");
+            alert("Please open this app in Google Chrome or Microsoft Edge for native speech features.");
         }
 
-        const startBtn = document.getElementById('start-btn');
-        const audioSelect = document.getElementById('audio-select');
-        const sizeSelect = document.getElementById('size-select');
+        const zoomInBtn = document.getElementById('zoom-in-btn');
+        const zoomOutBtn = document.getElementById('zoom-out-btn');
         const fullscreenBtn = document.getElementById('fullscreen-btn');
-        const controls = document.getElementById('controls');
+        const floatingControls = document.getElementById('floating-controls');
         const container = document.getElementById('caption-container');
         const wrapper = document.getElementById('caption-wrapper');
-        const interimSpan = document.getElementById('interim-span');
+        const statusIndicator = document.getElementById('status-indicator');
+        const canvas = document.getElementById('audio-monitor');
+        const canvasCtx = canvas.getContext('2d');
 
         let recognition;
-        let isListening = false;
         let controlTimeout;
+        let statusTimeout;
+        let currentFontSize = 4.5;
+        
+        let audioCtx;
+        let analyser;
+        let dataArray;
+        let source;
 
-        // Populate System Audio Input Devices
-        async function getAudioSources() {
-            try {
-                // Trigger quick permission prompt to read actual hardware labels
-                await navigator.mediaDevices.getUserMedia({ audio: true });
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                
-                audioSelect.innerHTML = '<option value="default">Default System Audio Input</option>';
-                
-                devices.forEach(device => {
-                    if (device.kind === 'audioinput') {
-                        const option = document.createElement('option');
-                        option.value = device.deviceId;
-                        // This will show your virtual NDI / Cable devices if active
-                        option.text = device.label || `Audio Input ${audioSelect.length}`;
-                        audioSelect.appendChild(option);
-                    }
-                });
-            } catch (e) {
-                audioSelect.innerHTML = '<option value="">Microphone Access Denied</option>';
-            }
-        }
+        let committedWordCount = 0;
 
         function initRecognition() {
             recognition = new SpeechRecognition();
             recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-
-            recognition.onstart = () => {
-                isListening = true;
-                startBtn.textContent = 'Stop Captioning';
-                startBtn.classList.add('active');
-            };
+            recognition.interimResults = true; 
+            recognition.lang = 'fil-PH';
 
             recognition.onend = () => {
-                // Keep the engine alive if it times out naturally
-                if (isListening) recognition.start();
-                else {
-                    startBtn.textContent = 'Start Captioning';
-                    startBtn.classList.remove('active');
-                }
+                recognition.start(); 
             };
 
             recognition.onresult = (event) => {
-                let interimTranscript = '';
-                
+                showWaitingIndicator(false);
+
+                let interimScript = "";
+                let finalScript = "";
+
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    const result = event.results[i];
-                    if (result.isFinal) {
-                        appendAnimatedWords(result[0].transcript);
+                    if (event.results[i].isFinal) {
+                        finalScript += event.results[i][0].transcript;
                     } else {
-                        interimTranscript += result[0].transcript;
+                        interimScript += event.results[i][0].transcript;
                     }
                 }
-                interimSpan.textContent = interimTranscript;
-                container.scrollTop = container.scrollHeight;
+
+                let combinedTranscript = (finalScript + interimScript).trim();
+                
+                if (combinedTranscript) {
+                    processCompleteWordsOnly(combinedTranscript);
+                }
             };
         }
 
-        function appendAnimatedWords(text) {
-            if (!text.trim()) return;
+        function processCompleteWordsOnly(fullText) {
+            const allWords = fullText.split(/\s+/);
             
-            const words = text.trim().split(/\s+/);
-            words.forEach(word => {
-                const span = document.createElement('span');
-                span.className = 'word';
-                span.textContent = word;
-                wrapper.insertBefore(span, interimSpan);
-            });
-            
-            // Appends standard punctuation spaces
-            const space = document.createTextNode(' ');
-            wrapper.insertBefore(space, interimSpan);
+            let totalCompleteWords = allWords.length;
+            if (!fullText.endsWith(' ')) {
+                totalCompleteWords = allWords.length - 1; 
+            }
 
-            // Prevent browser lag during long production runs
-            if (wrapper.childNodes.length > 400) {
-                for (let i = 0; i < 40; i++) {
-                    if (wrapper.firstChild && wrapper.firstChild !== interimSpan) {
-                        wrapper.removeChild(wrapper.firstChild);
+            if (totalCompleteWords > committedWordCount) {
+                for (let i = committedWordCount; i < totalCompleteWords; i++) {
+                    if (allWords[i].trim()) {
+                        appendWordElement(allWords[i].trim());
                     }
                 }
+                committedWordCount = totalCompleteWords;
+            }
+
+            resetSilenceTimer();
+        }
+
+        function appendWordElement(word) {
+            const span = document.createElement('span');
+            span.className = 'word';
+            span.textContent = word;
+            wrapper.appendChild(span);
+            wrapper.appendChild(document.createTextNode(' '));
+
+            if (wrapper.childNodes.length > 300) {
+                for (let i = 0; i < 20; i++) {
+                    if (wrapper.firstChild) wrapper.removeChild(wrapper.firstChild);
+                }
+                committedWordCount = Math.max(0, committedWordCount - 10);
             }
             container.scrollTop = container.scrollHeight;
         }
 
-        startBtn.addEventListener('click', () => {
-            if (!recognition) initRecognition();
+        function showWaitingIndicator(show) {
+            if (show) statusIndicator.classList.remove('hidden');
+            else statusIndicator.classList.add('hidden');
+        }
 
-            if (isListening) {
-                isListening = false;
-                recognition.stop();
-            } else {
-                // Chrome links WebSpeech directly to your OS system default device.
-                // Selecting an input device here updates the WebAudio context handle.
-                const deviceId = audioSelect.value;
-                const constraints = deviceId && deviceId !== 'default' ? { audio: { deviceId: { exact: deviceId } } } : { audio: true };
+        function resetSilenceTimer() {
+            clearTimeout(statusTimeout);
+            statusTimeout = setTimeout(() => {
+                showWaitingIndicator(true);
+                committedWordCount = 0;
+            }, 3000);
+        }
 
-                navigator.mediaDevices.getUserMedia(constraints)
-                    .then(() => recognition.start())
-                    .catch(err => alert("Audio selection error: " + err.message));
+        async function setupAudioMonitor() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 512; 
+                
+                source = audioCtx.createMediaStreamSource(stream);
+                source.connect(analyser);
+                
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                
+                resizeCanvas();
+                window.addEventListener('resize', resizeCanvas);
+                
+                drawWaveform();
+                
+                initRecognition();
+                recognition.start();
+            } catch (err) {
+                console.error("Audio hardware interface error:", err);
+                statusIndicator.innerHTML = "<span style='color:#cc2929;'>❌ Microphone Access Denied</span>";
+            }
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight * 0.25;
+        }
+
+        function drawWaveform() {
+            requestAnimationFrame(drawWaveform);
+            analyser.getByteTimeDomainData(dataArray);
+
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+            canvasCtx.lineWidth = 3;
+            canvasCtx.strokeStyle = '#00ffcc'; 
+            canvasCtx.beginPath();
+
+            const sliceWidth = canvas.width * 1.0 / dataArray.length;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = (v * canvas.height / 2);
+
+                if (i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+
+                x += sliceWidth;
+            }
+
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.stroke();
+        }
+
+        zoomInBtn.addEventListener('click', () => {
+            if (currentFontSize < 10) {
+                currentFontSize += 0.5;
+                document.documentElement.style.setProperty('--font-size', `${currentFontSize}rem`);
+                container.scrollTop = container.scrollHeight;
             }
         });
 
-        sizeSelect.addEventListener('change', (e) => {
-            document.documentElement.style.setProperty('--font-size', e.target.value);
-            container.scrollTop = container.scrollHeight;
+        zoomOutBtn.addEventListener('click', () => {
+            if (currentFontSize > 2) {
+                currentFontSize -= 0.5;
+                document.documentElement.style.setProperty('--font-size', `${currentFontSize}rem`);
+                container.scrollTop = container.scrollHeight;
+            }
         });
 
         fullscreenBtn.addEventListener('click', () => {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-            else document.exitFullscreen();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                fullscreenBtn.textContent = "Collapse";
+                fullscreenBtn.style.fontSize = "0.75rem";
+            } else {
+                document.exitFullscreen();
+                fullscreenBtn.textContent = "⛶";
+                fullscreenBtn.style.fontSize = "1.5rem";
+            }
         });
 
-        // Hide UI controls automatically during presentations/streams
         function hideControlsWatcher() {
-            controls.classList.remove('hidden');
+            floatingControls.classList.remove('hidden');
             clearTimeout(controlTimeout);
             controlTimeout = setTimeout(() => {
-                if (isListening && !document.activeElement.matches('select')) {
-                    controls.classList.add('hidden');
-                }
+                floatingControls.classList.add('hidden');
             }, 3000);
         }
         window.addEventListener('mousemove', hideControlsWatcher);
         window.addEventListener('click', hideControlsWatcher);
         
-        getAudioSources();
+        window.addEventListener('DOMContentLoaded', setupAudioMonitor);
     </script>
 </body>
 </html>
