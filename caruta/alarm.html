@@ -17,23 +17,41 @@
             transition: background-color 0.3s ease;
         }
         .alert-active { background-color: #4a0000 !important; }
-        
-        #header {
-            width: 100%;
-            padding: 15px;
-            text-align: center;
-            background: rgba(255,255,255,0.05);
-            border-bottom: 1px solid #333;
-        }
 
         .main-container {
             width: 95%;
-            max-width: 1300px;
+            max-width: 1400px;
             padding: 20px;
             text-align: center;
         }
 
-        /* Side-by-side grid layout */
+        /* ROW 1: Embedded Livestream Player Layout */
+        .player-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .player-panel {
+            background: #111;
+            border-radius: 12px;
+            border: 1px solid #333;
+            overflow: hidden;
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .player-panel iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: none;
+        }
+
+        /* ROW 2: Metric Dashboard Panels Grid Layout */
         .dual-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -48,6 +66,7 @@
             border: 1px solid #333;
             text-align: left;
             position: relative;
+            overflow: hidden;
         }
 
         .device-header {
@@ -59,35 +78,57 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+            z-index: 10;
         }
 
-        .ip-label { font-size: 0.85rem; color: #888; font-family: monospace; }
+        .ip-label { font-size: 0.85rem; color: #888; font-family: monospace; margin-right: 10px; }
 
-        /* Hover-Expanding Power/Reboot Button inside Panel Header */
-        .reboot-btn {
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Action Control Triggers */
+        .action-btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0px;
-            width: 32px;
             height: 32px;
             background-color: #242429;
             border: 1px solid #3a3a42;
-            color: #f75a68;
-            border-radius: 50px;
             font-weight: bold;
             font-size: 0.85rem;
             cursor: pointer;
-            overflow: hidden;
+            border-radius: 50px;
             white-space: nowrap;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: #fff;
+        }
+
+        /* Manual Refresh Video Action Modifier */
+        .refresh-video-btn {
+            width: 32px;
+            font-size: 1.1rem;
+        }
+        .refresh-video-btn:hover {
+            background-color: #2563eb;
+            border-color: #3b82f6;
+            transform: rotate(180deg);
+        }
+
+        /* Hardware Power/Reboot Action Modifier */
+        .reboot-btn {
+            width: 32px;
+            color: #f75a68;
+            overflow: hidden;
             padding: 0;
-            margin-left: 10px;
         }
 
         .reboot-btn .icon {
-            font-size: 1rem;
+            font-size: 1.1rem;
             display: inline-block;
             min-width: 30px;
             text-align: center;
@@ -101,7 +142,7 @@
             letter-spacing: 0.5px;
         }
 
-        .reboot-btn:hover {
+        .reboot-btn:hover:not(:disabled) {
             width: 105px;
             background-color: #b32b36;
             color: #fff;
@@ -110,90 +151,138 @@
             padding-right: 12px;
         }
 
-        .reboot-btn:hover .text {
+        .reboot-btn:hover:not(:disabled) .text {
             max-width: 70px;
             opacity: 1;
         }
 
         .reboot-btn:disabled {
+            width: 32px !important;
+            background-color: #2a2a2e !important;
+            border-color: #222 !important;
+            color: #555 !important;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .reboot-btn.rebooting-active:disabled {
             width: 140px !important;
             background-color: #3e3e42 !important;
             border-color: #29292e !important;
             color: #a8a8b3 !important;
             border-radius: 6px;
         }
-        .reboot-btn:disabled .text {
+        .reboot-btn.rebooting-active:disabled .text {
             max-width: 110px !important;
             opacity: 1 !important;
         }
 
-        .header-actions {
+        /* Cache Percent Text Overlay Properties */
+        .percent-container {
+            position: relative;
+            height: 120px;
             display: flex;
+            justify-content: center;
             align-items: center;
+            margin: 10px 0;
+            z-index: 5;
         }
 
-        /* Meta metrics matrix */
+        .percent { 
+            font-size: 4rem; 
+            font-weight: bold; 
+            text-align: center; 
+            position: relative;
+            z-index: 10;
+            text-shadow: 0 0 15px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,1);
+        }
+        .fb-color { color: #1877f2; }
+        .yt-color { color: #ff0000; }
+
+        .bg-chart-wrapper {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            opacity: 0.25;
+            pointer-events: none;
+        }
+
+        /* ROW 3: Meta metrics matrix */
         .meta-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
             margin-top: 15px;
+            position: relative;
+            z-index: 10;
         }
 
         .meta-item {
-            background: rgba(255,255,255,0.03);
+            background: rgba(0, 0, 0, 0.4);
             padding: 10px;
             border-radius: 6px;
             border: 1px solid #2a2a2a;
+            backdrop-filter: blur(2px);
         }
 
-        .meta-label { font-size: 0.75rem; color: #aaa; text-transform: uppercase; margin-bottom: 4px; }
-        .meta-value { font-size: 1.1rem; font-weight: 600; color: #fff; }
+        .meta-label { font-size: 0.7rem; color: #aaa; text-transform: uppercase; margin-bottom: 4px; }
+        .meta-value { font-size: 1rem; font-weight: 600; color: #fff; }
 
         /* Status Pills */
         .status-pill {
-            padding: 4px 10px;
+            padding: 3px 8px;
             border-radius: 20px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: bold;
             text-transform: uppercase;
+            display: inline-block;
         }
         .status-onair { background-color: #dc2626; color: white; animation: blink 1.5s infinite; }
         .status-offair { background-color: #4b5563; color: #d1d5db; }
 
-        .percent { font-size: 3.5rem; font-weight: bold; text-align: center; margin: 10px 0; }
-        .fb-color { color: #1877f2; }
-        .yt-color { color: #ff0000; }
-
-        .chart-container {
-            background: #1e1e1e;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #333;
-            height: 350px;
-            margin-bottom: 25px;
-        }
-
-        .control-bar {
-            background: #1e1e1e;
-            padding: 15px 30px;
-            border-radius: 12px;
-            border: 1px solid #333;
+        /* Audio Safety Interlock Modal Overlay */
+        .audio-modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 20px;
+            z-index: 5000;
+            backdrop-filter: blur(8px);
+            transition: opacity 0.4s ease;
         }
 
-        button.arm-btn {
+        .audio-modal-content {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        }
+
+        .audio-modal-title { font-size: 1.8rem; font-weight: bold; margin-bottom: 15px; color: #fff; }
+        .audio-modal-desc { color: #aaa; font-size: 0.95rem; margin-bottom: 30px; line-height: 1.5; }
+
+        .arm-btn {
             background: #2563eb;
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
+            padding: 16px 32px;
+            border-radius: 8px;
             font-weight: bold;
+            font-size: 1.1rem;
             cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
         }
-        button.arm-btn:hover { background: #1d4ed8; }
+        .arm-btn:hover { background: #1d4ed8; }
 
         @keyframes blink {
             0% { opacity: 1; }
@@ -204,20 +293,42 @@
 </head>
 <body>
 
+    <div id="audioSafetyModal" class="audio-modal-overlay">
+        <div class="audio-modal-content">
+            <div class="audio-modal-title">Audio Initialization</div>
+            <div class="audio-modal-desc">
+                Engage monitoring context loops. Unlocks sound engines required to trigger hardware cache breach alerts.
+            </div>
+            <button id="start-btn" class="arm-btn">ARM MONITOR AUDIO</button>
+        </div>
+    </div>
+
     <div class="main-container">
+        
+        <div class="player-grid">
+            <div class="player-panel" id="fb-player-container"></div>
+            <div class="player-panel" id="yt-player-container"></div>
+        </div>
+
         <div class="dual-grid">
             
             <div class="device-panel" id="panel-fb">
+                <div class="bg-chart-wrapper"><canvas id="fbMiniChart"></canvas></div>
+
                 <div class="device-header">
                     <span>🔵 FACEBOOK LIVE</span>
                     <div class="header-actions">
                         <span class="ip-label">192.168.50.249</span>
-                        <button id="fb-reboot-btn" class="reboot-btn" onclick="handleRebootTrigger('fb')" title="Force Hardware Protocol Reboot">
-                            <span class="icon">⏽</span><span class="text">Reboot</span>
+                        <button class="action-btn refresh-video-btn" onclick="refreshFacebookPlayer()" title="Force Refresh Facebook Video Frame">↻</button>
+                        <button id="fb-reboot-btn" class="action-btn reboot-btn" onclick="handleRebootTrigger('fb')" title="Force Hardware Protocol Reboot" disabled>
+                            <span class="icon">⏻</span><span class="text">Reboot</span>
                         </button>
                     </div>
                 </div>
-                <div class="percent fb-color" id="fb-cache">0%</div>
+                
+                <div class="percent-container">
+                    <div class="percent fb-color" id="fb-cache-display">0%</div>
+                </div>
                 
                 <div class="meta-grid">
                     <div class="meta-item">
@@ -233,23 +344,29 @@
                         <div class="meta-value" id="fb-bitrate">--</div>
                     </div>
                     <div class="meta-item">
-                        <div class="meta-label">Template</div>
-                        <div class="meta-value" id="fb-template">--</div>
+                        <div class="meta-label">Uptime</div>
+                        <div class="meta-value" id="fb-uptime">--:--:--</div>
                     </div>
                 </div>
             </div>
 
             <div class="device-panel" id="panel-yt">
+                <div class="bg-chart-wrapper"><canvas id="ytMiniChart"></canvas></div>
+
                 <div class="device-header">
                     <span>🔴 YOUTUBE LIVE</span>
                     <div class="header-actions">
                         <span class="ip-label">192.168.50.250</span>
-                        <button id="yt-reboot-btn" class="reboot-btn" onclick="handleRebootTrigger('yt')" title="Force Hardware Protocol Reboot">
-                            <span class="icon">⏽</span><span class="text">Reboot</span>
+                        <button class="action-btn refresh-video-btn" onclick="refreshYouTubePlayer()" title="Force Refresh YouTube Video Frame">↻</button>
+                        <button id="yt-reboot-btn" class="action-btn reboot-btn" onclick="handleRebootTrigger('yt')" title="Force Hardware Protocol Reboot" disabled>
+                            <span class="icon">⏻</span><span class="text">Reboot</span>
                         </button>
                     </div>
                 </div>
-                <div class="percent yt-color" id="yt-cache">0%</div>
+                
+                <div class="percent-container">
+                    <div class="percent yt-color" id="yt-cache-display">0%</div>
+                </div>
                 
                 <div class="meta-grid">
                     <div class="meta-item">
@@ -265,21 +382,12 @@
                         <div class="meta-value" id="yt-bitrate">--</div>
                     </div>
                     <div class="meta-item">
-                        <div class="meta-label">Template</div>
-                        <div class="meta-value" id="yt-template">--</div>
+                        <div class="meta-label">Uptime</div>
+                        <div class="meta-value" id="yt-uptime">--:--:--</div>
                     </div>
                 </div>
             </div>
 
-        </div>
-
-        <div class="chart-container">
-            <canvas id="cacheChart"></canvas>
-        </div>
-
-        <div class="control-bar">
-            <button id="start-btn" class="arm-btn">ARM ALARM AUDIO</button>
-            <div id="alarm-status" style="color: #888; font-weight: bold;">Audio Safety: Muted</div>
         </div>
     </div>
 
@@ -288,10 +396,8 @@
     </audio>
 
     <script>
-        const FB_API = 'http://192.168.50.249/control/api/v1/livestreams/0';
-        const YT_API = 'http://192.168.50.250/control/api/v1/livestreams/0';
+        const RELAY_SERVER_API = 'http://172.16.4.13:3000/api/relay';
         
-        // Protocol Ports from device IPs
         const PROTOCOL_URLS = {
             fb: 'http://192.168.50.249:9977',
             yt: 'http://192.168.50.250:9977'
@@ -299,169 +405,208 @@
 
         const alertSound = document.getElementById('alert-sound');
         const startBtn = document.getElementById('start-btn');
-        const alarmStatus = document.getElementById('alarm-status');
+        const audioModal = document.getElementById('audioSafetyModal');
 
         let audioEnabled = false;
-        const MAX_DATA_POINTS = 60; // 1 minute history track
-
-        // Track reboot lock states to prevent poll modifications during downtime
+        const MAX_DATA_POINTS = 45; 
         let rebootingDevices = { fb: false, yt: false };
 
-        // Initialize Shared Comparison Chart
-        const ctx = document.getElementById('cacheChart').getContext('2d');
-        const cacheChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: Array(MAX_DATA_POINTS).fill(''),
-                datasets: [
-                    {
-                        label: 'Facebook Cache %',
-                        data: Array(MAX_DATA_POINTS).fill(0),
-                        borderColor: '#1877f2',
-                        backgroundColor: 'rgba(24, 119, 242, 0.05)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 0
-                    },
-                    {
-                        label: 'YouTube Cache %',
-                        data: Array(MAX_DATA_POINTS).fill(0),
-                        borderColor: '#ff0000',
-                        backgroundColor: 'rgba(255, 0, 0, 0.05)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 0
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { 
-                        min: 0, 
-                        max: 100, 
-                        grid: { color: '#2a2a2a' },
-                        ticks: { color: '#aaa' }
-                    },
-                    x: { display: false }
-                },
-                plugins: {
-                    legend: { 
-                        display: true,
-                        labels: { color: '#fff', font: { weight: 'bold' } }
-                    }
-                },
-                animation: { duration: 0 }
-            }
-        });
+        let loadedFbVideoId = "";
+        const fbFallbackId = "27510793398513558"; 
+        const ytHandle = "@DZRHTV";
+        const ytFallbackChannelId = "UC85_5cHzS_Vp9YgqR_wep3w";
 
-        // Click wrapper to bypass browser autoplay rules
+        function getFormattedTimestamp() {
+            const now = new Date();
+            return `${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getFullYear()).slice(-2)}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+        }
+
+        // Helper: Converts durations from seconds to HH:MM:SS
+        function formatDuration(totalSeconds) {
+            if (!totalSeconds || isNaN(totalSeconds) || totalSeconds <= 0) return "--:--:--";
+            const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+            const mins = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+            const secs = String(Math.floor(totalSeconds % 60)).padStart(2, '0');
+            return `${hrs}:${mins}:${secs}`;
+        }
+
+        // Background Chart Build Configuration
+        function createMiniChartConfig(label, color, bgColor) {
+            return {
+                type: 'line',
+                data: {
+                    labels: Array(MAX_DATA_POINTS).fill(''),
+                    datasets: [{
+                        data: Array(MAX_DATA_POINTS).fill(0),
+                        borderColor: color,
+                        backgroundColor: bgColor,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: 0, max: 100, display: false },
+                        x: { display: false }
+                    },
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    animation: { duration: 0 }
+                }
+            };
+        }
+
+        const fbMiniChart = new Chart(document.getElementById('fbMiniChart').getContext('2d'), createMiniChartConfig('FB Cache', '#1877f2', 'rgba(24, 119, 242, 0.08)'));
+        const ytMiniChart = new Chart(document.getElementById('ytMiniChart').getContext('2d'), createMiniChartConfig('YT Cache', '#ff0000', 'rgba(255, 0, 0, 0.08)'));
+
+        // Dismiss Modal and Lock Audio Context
         startBtn.addEventListener('click', () => {
             audioEnabled = true;
-            startBtn.style.display = 'none';
-            alarmStatus.innerText = "AUDIO MODE: ARMED & ACTIVE";
-            alarmStatus.style.color = "#00ff00";
+            audioModal.style.opacity = '0';
+            setTimeout(() => audioModal.style.display = 'none', 400);
             alertSound.play().then(() => alertSound.pause());
         });
 
-        // Unified rendering function per encoder
-        function updateUIElements(prefix, data, isOnline) {
-            const cacheEl = document.getElementById(`${prefix}-cache`);
+        // --- ROW 1: EMBEDDED PLAYER PIPELINES ---
+        async function refreshFacebookPlayer() {
+            const timestamp = getFormattedTimestamp();
+            const targetUrl = `https://r.jina.ai/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
+            const container = document.getElementById('fb-player-container');
+            container.innerHTML = `<div style="position:absolute;color:#666;top:45%;left:42%;font-weight:bold;">Reloading Frame...</div>`;
+            try {
+                const response = await fetch(targetUrl);
+                if (!response.ok) throw new Error();
+                const text = await response.text();
+                const matches = text.match(/\/videos\/(\d{15,18})/g);
+                
+                let targetId = fbFallbackId;
+                if (matches && matches.length > 0) {
+                    targetId = matches[0].replace("/videos/", "");
+                }
+                
+                loadedFbVideoId = targetId;
+                container.innerHTML = `<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${targetId}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen="true"></iframe>`;
+            } catch (e) {
+                loadedFbVideoId = fbFallbackId;
+                container.innerHTML = `<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${fbFallbackId}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen="true"></iframe>`;
+            }
+        }
+
+        async function refreshYouTubePlayer() {
+            const cacheBuster = `?updated=${Date.now()}+${Math.random().toString(36).substring(2, 10)}`;
+            const targetUrl = `https://r.jina.ai/https://www.youtube.com/${ytHandle}/featured${cacheBuster}`;
+            const container = document.getElementById('yt-player-container');
+            container.innerHTML = `<div style="position:absolute;color:#666;top:45%;left:42%;font-weight:bold;">Reloading Frame...</div>`;
+            try {
+                const response = await fetch(targetUrl);
+                if (!response.ok) throw new Error();
+                const text = await response.text();
+                
+                const standardYtRegex = /(?:v=|embed\/|watch\?v=|vi\/|youtu\.be\/|\/shorts\/|vi_webp\/)([a-zA-Z0-9_-]{11})/;
+                const thumbnailRegex = /\/vi\/([a-zA-Z0-9_-]{11})\/(?:maxresdefault|hqdefault|mqdefault)\.jpg/;
+                
+                let liveVideoId = null;
+                const standardMatch = text.match(standardYtRegex);
+                const thumbnailMatch = text.match(thumbnailRegex);
+
+                if (standardMatch && standardMatch[1]) liveVideoId = standardMatch[1];
+                else if (thumbnailMatch && thumbnailMatch[1]) liveVideoId = thumbnailMatch[1];
+
+                if (liveVideoId) {
+                    container.innerHTML = `<iframe src="https://www.youtube.com/embed/${liveVideoId}?autoplay=1&mute=1&rel=0&controls=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+                } else {
+                    injectYtFallback();
+                }
+            } catch (e) {
+                injectYtFallback();
+            }
+        }
+
+        function injectYtFallback() {
+            document.getElementById('yt-player-container').innerHTML = `<iframe src="https://www.youtube.com/embed/live_stream?channel=${ytFallbackChannelId}&autoplay=1&mute=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        }
+
+        // --- ROW 3 & TELEMETRY HANDLING ---
+        function updateUIElements(prefix, deviceData, isOnline) {
+            const cacheDisplay = document.getElementById(`${prefix}-cache-display`);
             const statusEl = document.getElementById(`${prefix}-status`);
             const resEl = document.getElementById(`${prefix}-res`);
             const bitEl = document.getElementById(`${prefix}-bitrate`);
-            const templateEl = document.getElementById(`${prefix}-template`);
+            const uptimeEl = document.getElementById(`${prefix}-uptime`);
+            const rebootBtn = document.getElementById(`${prefix}-reboot-btn`);
 
             if (rebootingDevices[prefix]) {
-                cacheEl.innerText = '--%';
+                cacheDisplay.innerText = '--%';
                 statusEl.innerHTML = `<span class="status-pill" style="background-color: #3e3e42; color: #a8a8b3;">REBOOTING</span>`;
                 resEl.innerText = '--';
                 bitEl.innerText = '--';
-                templateEl.innerText = '--';
+                uptimeEl.innerText = '--:--:--';
                 return 0;
             }
 
             if (!isOnline) {
-                cacheEl.innerText = '--%';
+                cacheDisplay.innerText = '--%';
                 statusEl.innerHTML = `<span class="status-pill status-offair">OFFLINE</span>`;
                 resEl.innerText = '--';
                 bitEl.innerText = '--';
-                templateEl.innerText = '--';
+                uptimeEl.innerText = '--:--:--';
+                rebootBtn.disabled = true;
+                rebootBtn.className = "action-btn reboot-btn";
                 return 0;
             }
 
-            const cacheValue = data.cache !== undefined ? data.cache : 0;
-            cacheEl.innerText = cacheValue + '%';
+            rebootBtn.disabled = false;
 
-            // Calculate On-Air state matching hardware metrics
-            if (data.status === "Streaming" || data.duration > 0) {
+            const cacheValue = deviceData.cache !== undefined ? deviceData.cache : 0;
+            cacheDisplay.innerText = cacheValue + '%';
+
+            if (deviceData.status === "Streaming" || deviceData.duration > 0) {
                 statusEl.innerHTML = `<span class="status-pill status-onair">ON AIR</span>`;
+                uptimeEl.innerText = formatDuration(deviceData.duration);
             } else {
                 statusEl.innerHTML = `<span class="status-pill status-offair">STANDBY</span>`;
+                uptimeEl.innerText = "--:--:--";
             }
 
-            resEl.innerText = data.effectiveVideoFormat || 'Unknown';
+            resEl.innerText = deviceData.effectiveVideoFormat || 'Unknown';
             
-            // Format bitrate from bps to Mbps elegantly
-            if (data.bitrate) {
-                const mbps = (data.bitrate / 1000000).toFixed(2);
-                bitEl.innerText = `${mbps} Mbps`;
+            if (deviceData.bitrate) {
+                bitEl.innerText = `${(deviceData.bitrate / 1000000).toFixed(2)} Mbps`;
             } else {
                 bitEl.innerText = '0 Mbps';
             }
 
-            templateEl.innerText = data.quality || 'Default';
-
             return cacheValue;
         }
 
-        async function fetchDeviceData(url, prefix) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error();
-                const data = await response.json();
-                return { data, isOnline: true };
-            } catch (e) {
-                return { data: null, isOnline: false };
-            }
-        }
-
+        // Outbound Hardware Restart Interlock Sequence
         async function handleRebootTrigger(prefix) {
+            const targetLabel = prefix === 'fb' ? 'FACEBOOK ENCODER (.249)' : 'YOUTUBE ENCODER (.250)';
+            
+            // Confirm Dialog integration
+            const confirmed = confirm(`CRITICAL ACTION WARNING:\n\nAre you sure you want to force a hardware protocol reboot on the ${targetLabel}?\n\nThis will drop any active broadcast stream immediately.`);
+            if (!confirmed) return;
+
             const btn = document.getElementById(`${prefix}-reboot-btn`);
             const targetUrl = PROTOCOL_URLS[prefix];
             
-            btn.innerHTML = '<span class="icon">⏽</span><span class="text">Rebooting...</span>';
+            btn.innerHTML = '<span class="icon">⏻</span><span class="text">Rebooting...</span>';
+            btn.className = "action-btn reboot-btn rebooting-active";
             btn.disabled = true;
             rebootingDevices[prefix] = true;
 
-            // Trigger visual override state instantly
             updateUIElements(prefix, null, false);
 
             try {
-                const response = await fetch(`${targetUrl}`, {
+                await fetch(`${targetUrl}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },
                     body: "SHUTDOWN:\nAction: reboot\n\n"
                 });
-
-                if (response.ok) {
-                    setTimeout(() => resetRebootBtn(prefix), 8000);
-                } else {
-                    const fallbackResponse = await fetch(`${targetUrl}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: "HARDWARE CONTROL:\nReboot: true\n\n"
-                    });
-                    
-                    if (fallbackResponse.ok) {
-                        setTimeout(() => resetRebootBtn(prefix), 8000);
-                    } else {
-                        resetRebootBtn(prefix);
-                    }
-                }
+                setTimeout(() => resetRebootBtn(prefix), 8000);
             } catch (error) {
-                // Network drops completely when device power cycles
                 setTimeout(() => resetRebootBtn(prefix), 8000);
             }
         }
@@ -469,42 +614,59 @@
         function resetRebootBtn(prefix) {
             const btn = document.getElementById(`${prefix}-reboot-btn`);
             rebootingDevices[prefix] = false;
-            btn.disabled = false;
-            btn.innerHTML = '<span class="icon">⏽</span><span class="text">Reboot</span>';
+            btn.className = "action-btn reboot-btn";
+            btn.innerHTML = '<span class="icon">⏻</span><span class="text">Reboot</span>';
         }
 
+        // Main Synchronous Fetch Loop
         async function updateAll() {
-            // Simultaneous execution to prevent rendering blocking gaps
-            const [fbResult, ytResult] = await Promise.all([
-                fetchDeviceData(FB_API, 'fb'),
-                fetchDeviceData(YT_API, 'yt')
-            ]);
+            try {
+                const response = await fetch(RELAY_SERVER_API);
+                if (!response.ok) throw new Error("Network Fault");
+                
+                const serverData = await response.json();
 
-            const fbCache = updateUIElements('fb', fbResult.data, fbResult.isOnline);
-            const ytCache = updateUIElements('yt', ytResult.data, ytResult.isOnline);
+                const fbCache = updateUIElements('fb', serverData.fb, serverData.fb.isOnline);
+                const ytCache = updateUIElements('yt', serverData.yt, serverData.yt.isOnline);
 
-            // Shift and update Chart Data paths
-            cacheChart.data.datasets[0].data.push(fbCache);
-            cacheChart.data.datasets[0].data.shift();
+                fbMiniChart.data.datasets[0].data.push(fbCache);
+                fbMiniChart.data.datasets[0].data.shift();
+                fbMiniChart.update();
 
-            cacheChart.data.datasets[1].data.push(ytCache);
-            cacheChart.data.datasets[1].data.shift();
-            cacheChart.update();
+                ytMiniChart.data.datasets[0].data.push(ytCache);
+                ytMiniChart.data.datasets[0].data.shift();
+                ytMiniChart.update();
 
-            // Fire triggers if either hardware cache breaches safe constraints (>10%)
-            if (fbCache > 10 || ytCache > 10) {
-                document.body.classList.add('alert-active');
-                if (audioEnabled) {
-                    alertSound.play().catch(e => console.log("Audio interlocked:", e));
+                if (fbCache > 10 || ytCache > 10) {
+                    document.body.classList.add('alert-active');
+                    if (audioEnabled) alertSound.play().catch(e => console.log(e));
+                } else {
+                    document.body.classList.remove('alert-active');
+                    alertSound.pause();
                 }
-            } else {
-                document.body.classList.remove('alert-active');
-                alertSound.pause();
+
+            } catch (e) {
+                updateUIElements('fb', null, false);
+                updateUIElements('yt', null, false);
             }
         }
 
-        // Loop execution matrix every 1000ms
-        setInterval(updateAll, 1000);
+        // Cron Scheduling Loops Matcher
+        function runScheduledTimeTicker() {
+            const now = new Date();
+            if ((now.getMinutes() === 5 || now.getMinutes() === 35) && now.getSeconds() === 0) {
+                refreshFacebookPlayer();
+                refreshYouTubePlayer();
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            refreshFacebookPlayer();
+            refreshYouTubePlayer();
+            
+            setInterval(updateAll, 1000);
+            setInterval(runScheduledTimeTicker, 1000);
+        });
     </script>
 </body>
 </html>
