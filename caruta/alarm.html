@@ -63,6 +63,75 @@
 
         .ip-label { font-size: 0.85rem; color: #888; font-family: monospace; }
 
+        /* Hover-Expanding Power/Reboot Button inside Panel Header */
+        .reboot-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0px;
+            width: 32px;
+            height: 32px;
+            background-color: #242429;
+            border: 1px solid #3a3a42;
+            color: #f75a68;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            overflow: hidden;
+            white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            padding: 0;
+            margin-left: 10px;
+        }
+
+        .reboot-btn .icon {
+            font-size: 1rem;
+            display: inline-block;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .reboot-btn .text {
+            max-width: 0;
+            opacity: 0;
+            transition: max-width 0.3s, opacity 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .reboot-btn:hover {
+            width: 105px;
+            background-color: #b32b36;
+            color: #fff;
+            border-color: #f75a68;
+            gap: 4px;
+            padding-right: 12px;
+        }
+
+        .reboot-btn:hover .text {
+            max-width: 70px;
+            opacity: 1;
+        }
+
+        .reboot-btn:disabled {
+            width: 140px !important;
+            background-color: #3e3e42 !important;
+            border-color: #29292e !important;
+            color: #a8a8b3 !important;
+            border-radius: 6px;
+        }
+        .reboot-btn:disabled .text {
+            max-width: 110px !important;
+            opacity: 1 !important;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+        }
+
         /* Meta metrics matrix */
         .meta-grid {
             display: grid;
@@ -115,7 +184,7 @@
             gap: 20px;
         }
 
-        button {
+        button.arm-btn {
             background: #2563eb;
             color: white;
             border: none;
@@ -124,7 +193,7 @@
             font-weight: bold;
             cursor: pointer;
         }
-        button:hover { background: #1d4ed8; }
+        button.arm-btn:hover { background: #1d4ed8; }
 
         @keyframes blink {
             0% { opacity: 1; }
@@ -141,7 +210,12 @@
             <div class="device-panel" id="panel-fb">
                 <div class="device-header">
                     <span>🔵 FACEBOOK LIVE</span>
-                    <span class="ip-label">192.168.50.249</span>
+                    <div class="header-actions">
+                        <span class="ip-label">192.168.50.249</span>
+                        <button id="fb-reboot-btn" class="reboot-btn" onclick="handleRebootTrigger('fb')" title="Force Hardware Protocol Reboot">
+                            <span class="icon">⏽</span><span class="text">Reboot</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="percent fb-color" id="fb-cache">0%</div>
                 
@@ -168,7 +242,12 @@
             <div class="device-panel" id="panel-yt">
                 <div class="device-header">
                     <span>🔴 YOUTUBE LIVE</span>
-                    <span class="ip-label">192.168.50.250</span>
+                    <div class="header-actions">
+                        <span class="ip-label">192.168.50.250</span>
+                        <button id="yt-reboot-btn" class="reboot-btn" onclick="handleRebootTrigger('yt')" title="Force Hardware Protocol Reboot">
+                            <span class="icon">⏽</span><span class="text">Reboot</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="percent yt-color" id="yt-cache">0%</div>
                 
@@ -199,7 +278,7 @@
         </div>
 
         <div class="control-bar">
-            <button id="start-btn">ARM ALARM AUDIO</button>
+            <button id="start-btn" class="arm-btn">ARM ALARM AUDIO</button>
             <div id="alarm-status" style="color: #888; font-weight: bold;">Audio Safety: Muted</div>
         </div>
     </div>
@@ -211,6 +290,12 @@
     <script>
         const FB_API = 'http://192.168.50.249/control/api/v1/livestreams/0';
         const YT_API = 'http://192.168.50.250/control/api/v1/livestreams/0';
+        
+        // Protocol Ports from device IPs
+        const PROTOCOL_URLS = {
+            fb: 'http://192.168.50.249:9977',
+            yt: 'http://192.168.50.250:9977'
+        };
 
         const alertSound = document.getElementById('alert-sound');
         const startBtn = document.getElementById('start-btn');
@@ -218,6 +303,9 @@
 
         let audioEnabled = false;
         const MAX_DATA_POINTS = 60; // 1 minute history track
+
+        // Track reboot lock states to prevent poll modifications during downtime
+        let rebootingDevices = { fb: false, yt: false };
 
         // Initialize Shared Comparison Chart
         const ctx = document.getElementById('cacheChart').getContext('2d');
@@ -285,6 +373,15 @@
             const bitEl = document.getElementById(`${prefix}-bitrate`);
             const templateEl = document.getElementById(`${prefix}-template`);
 
+            if (rebootingDevices[prefix]) {
+                cacheEl.innerText = '--%';
+                statusEl.innerHTML = `<span class="status-pill" style="background-color: #3e3e42; color: #a8a8b3;">REBOOTING</span>`;
+                resEl.innerText = '--';
+                bitEl.innerText = '--';
+                templateEl.innerText = '--';
+                return 0;
+            }
+
             if (!isOnline) {
                 cacheEl.innerText = '--%';
                 statusEl.innerHTML = `<span class="status-pill status-offair">OFFLINE</span>`;
@@ -328,6 +425,52 @@
             } catch (e) {
                 return { data: null, isOnline: false };
             }
+        }
+
+        async function handleRebootTrigger(prefix) {
+            const btn = document.getElementById(`${prefix}-reboot-btn`);
+            const targetUrl = PROTOCOL_URLS[prefix];
+            
+            btn.innerHTML = '<span class="icon">⏽</span><span class="text">Rebooting...</span>';
+            btn.disabled = true;
+            rebootingDevices[prefix] = true;
+
+            // Trigger visual override state instantly
+            updateUIElements(prefix, null, false);
+
+            try {
+                const response = await fetch(`${targetUrl}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: "SHUTDOWN:\nAction: reboot\n\n"
+                });
+
+                if (response.ok) {
+                    setTimeout(() => resetRebootBtn(prefix), 8000);
+                } else {
+                    const fallbackResponse = await fetch(`${targetUrl}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: "HARDWARE CONTROL:\nReboot: true\n\n"
+                    });
+                    
+                    if (fallbackResponse.ok) {
+                        setTimeout(() => resetRebootBtn(prefix), 8000);
+                    } else {
+                        resetRebootBtn(prefix);
+                    }
+                }
+            } catch (error) {
+                // Network drops completely when device power cycles
+                setTimeout(() => resetRebootBtn(prefix), 8000);
+            }
+        }
+
+        function resetRebootBtn(prefix) {
+            const btn = document.getElementById(`${prefix}-reboot-btn`);
+            rebootingDevices[prefix] = false;
+            btn.disabled = false;
+            btn.innerHTML = '<span class="icon">⏽</span><span class="text">Reboot</span>';
         }
 
         async function updateAll() {
