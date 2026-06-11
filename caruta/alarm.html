@@ -82,7 +82,7 @@
             z-index: 10;
         }
 
-        .ip-label { font-size: 0.85rem; color: #888; font-family: monospace; margin-right: 10px; }
+        .ip-label { font-size: 0.85rem; color: #888; font-family: monospace; margin-right: 5px; }
 
         .header-actions {
             display: flex;
@@ -106,17 +106,6 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             color: #fff;
-        }
-
-        /* Manual Refresh Video Action Modifier */
-        .refresh-video-btn {
-            width: 32px;
-            font-size: 1.1rem;
-        }
-        .refresh-video-btn:hover {
-            background-color: #2563eb;
-            border-color: #3b82f6;
-            transform: rotate(180deg);
         }
 
         /* Hardware Power/Reboot Action Modifier */
@@ -319,7 +308,6 @@
                     <span>🔵 FACEBOOK LIVE</span>
                     <div class="header-actions">
                         <span class="ip-label">192.168.50.249</span>
-                        <button class="action-btn refresh-video-btn" onclick="refreshFacebookPlayer()" title="Force Refresh Facebook Video Frame">↻</button>
                         <button id="fb-reboot-btn" class="action-btn reboot-btn" onclick="handleRebootTrigger('fb')" title="Force Hardware Protocol Reboot" disabled>
                             <span class="icon">⏻</span><span class="text">Reboot</span>
                         </button>
@@ -357,7 +345,6 @@
                     <span>🔴 YOUTUBE LIVE</span>
                     <div class="header-actions">
                         <span class="ip-label">192.168.50.250</span>
-                        <button class="action-btn refresh-video-btn" onclick="refreshYouTubePlayer()" title="Force Refresh YouTube Video Frame">↻</button>
                         <button id="yt-reboot-btn" class="action-btn reboot-btn" onclick="handleRebootTrigger('yt')" title="Force Hardware Protocol Reboot" disabled>
                             <span class="icon">⏻</span><span class="text">Reboot</span>
                         </button>
@@ -416,12 +403,15 @@
         const ytHandle = "@DZRHTV";
         const ytFallbackChannelId = "UC85_5cHzS_Vp9YgqR_wep3w";
 
+        // State variables to flag if the 1-minute auto-refresh has executed for this specific stream runtime run
+        let fbHasRefreshedAtOneMin = false;
+        let ytHasRefreshedAtOneMin = false;
+
         function getFormattedTimestamp() {
             const now = new Date();
             return `${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getFullYear()).slice(-2)}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
         }
 
-        // Helper: Converts durations from seconds to HH:MM:SS
         function formatDuration(totalSeconds) {
             if (!totalSeconds || isNaN(totalSeconds) || totalSeconds <= 0) return "--:--:--";
             const hrs = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
@@ -430,7 +420,6 @@
             return `${hrs}:${mins}:${secs}`;
         }
 
-        // Background Chart Build Configuration
         function createMiniChartConfig(label, color, bgColor) {
             return {
                 type: 'line',
@@ -461,7 +450,6 @@
         const fbMiniChart = new Chart(document.getElementById('fbMiniChart').getContext('2d'), createMiniChartConfig('FB Cache', '#1877f2', 'rgba(24, 119, 242, 0.08)'));
         const ytMiniChart = new Chart(document.getElementById('ytMiniChart').getContext('2d'), createMiniChartConfig('YT Cache', '#ff0000', 'rgba(255, 0, 0, 0.08)'));
 
-        // Dismiss Modal and Lock Audio Context
         startBtn.addEventListener('click', () => {
             audioEnabled = true;
             audioModal.style.opacity = '0';
@@ -469,12 +457,11 @@
             alertSound.play().then(() => alertSound.pause());
         });
 
-        // --- ROW 1: EMBEDDED PLAYER PIPELINES ---
+        // --- ROW 1: EMBEDDED PLAYER REFRESH PIPELINES ---
         async function refreshFacebookPlayer() {
             const timestamp = getFormattedTimestamp();
             const targetUrl = `https://r.jina.ai/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
             const container = document.getElementById('fb-player-container');
-            container.innerHTML = `<div style="position:absolute;color:#666;top:45%;left:42%;font-weight:bold;">Reloading Frame...</div>`;
             try {
                 const response = await fetch(targetUrl);
                 if (!response.ok) throw new Error();
@@ -498,7 +485,6 @@
             const cacheBuster = `?updated=${Date.now()}+${Math.random().toString(36).substring(2, 10)}`;
             const targetUrl = `https://r.jina.ai/https://www.youtube.com/${ytHandle}/featured${cacheBuster}`;
             const container = document.getElementById('yt-player-container');
-            container.innerHTML = `<div style="position:absolute;color:#666;top:45%;left:42%;font-weight:bold;">Reloading Frame...</div>`;
             try {
                 const response = await fetch(targetUrl);
                 if (!response.ok) throw new Error();
@@ -554,6 +540,11 @@
                 uptimeEl.innerText = '--:--:--';
                 rebootBtn.disabled = true;
                 rebootBtn.className = "action-btn reboot-btn";
+                
+                // Clear the 1-minute execution flag latch if the device drops offline completely
+                if (prefix === 'fb') fbHasRefreshedAtOneMin = false;
+                if (prefix === 'yt') ytHasRefreshedAtOneMin = false;
+                
                 return 0;
             }
 
@@ -562,12 +553,39 @@
             const cacheValue = deviceData.cache !== undefined ? deviceData.cache : 0;
             cacheDisplay.innerText = cacheValue + '%';
 
-            if (deviceData.status === "Streaming" || deviceData.duration > 0) {
+            const duration = deviceData.duration || 0;
+
+            if (deviceData.status === "Streaming" || duration > 0) {
                 statusEl.innerHTML = `<span class="status-pill status-onair">ON AIR</span>`;
-                uptimeEl.innerText = formatDuration(deviceData.duration);
+                uptimeEl.innerText = formatDuration(duration);
+
+                // --- 1-MINUTE AUTO REFRESH LOGIC ENGINE ---
+                // Triggers structural evaluation when internal hardware counters strike precisely 60 seconds
+                if (prefix === 'fb') {
+                    if (duration === 60 && !fbHasRefreshedAtOneMin) {
+                        fbHasRefreshedAtOneMin = true;
+                        console.log("[Auto-Refresh Triggered] Facebook runtime reached exactly 1 minute.");
+                        refreshFacebookPlayer();
+                    } else if (duration < 5) {
+                        fbHasRefreshedAtOneMin = false; // Reset if stream cycles or restarts completely
+                    }
+                } else if (prefix === 'yt') {
+                    if (duration === 60 && !ytHasRefreshedAtOneMin) {
+                        ytHasRefreshedAtOneMin = true;
+                        console.log("[Auto-Refresh Triggered] YouTube runtime reached exactly 1 minute.");
+                        refreshYouTubePlayer();
+                    } else if (duration < 5) {
+                        ytHasRefreshedAtOneMin = false; // Reset if stream cycles or restarts completely
+                    }
+                }
+
             } else {
                 statusEl.innerHTML = `<span class="status-pill status-offair">STANDBY</span>`;
                 uptimeEl.innerText = "--:--:--";
+                
+                // Reset flags when stream stops completely
+                if (prefix === 'fb') fbHasRefreshedAtOneMin = false;
+                if (prefix === 'yt') ytHasRefreshedAtOneMin = false;
             }
 
             resEl.innerText = deviceData.effectiveVideoFormat || 'Unknown';
@@ -581,11 +599,8 @@
             return cacheValue;
         }
 
-        // Outbound Hardware Restart Interlock Sequence
         async function handleRebootTrigger(prefix) {
             const targetLabel = prefix === 'fb' ? 'FACEBOOK ENCODER (.249)' : 'YOUTUBE ENCODER (.250)';
-            
-            // Confirm Dialog integration
             const confirmed = confirm(`CRITICAL ACTION WARNING:\n\nAre you sure you want to force a hardware protocol reboot on the ${targetLabel}?\n\nThis will drop any active broadcast stream immediately.`);
             if (!confirmed) return;
 
@@ -618,7 +633,6 @@
             btn.innerHTML = '<span class="icon">⏻</span><span class="text">Reboot</span>';
         }
 
-        // Main Synchronous Fetch Loop
         async function updateAll() {
             try {
                 const response = await fetch(RELAY_SERVER_API);
@@ -651,21 +665,12 @@
             }
         }
 
-        // Cron Scheduling Loops Matcher
-        function runScheduledTimeTicker() {
-            const now = new Date();
-            if ((now.getMinutes() === 5 || now.getMinutes() === 35) && now.getSeconds() === 0) {
-                refreshFacebookPlayer();
-                refreshYouTubePlayer();
-            }
-        }
-
         window.addEventListener('DOMContentLoaded', () => {
+            // Instant automatic trigger execution sequence triggered on initial load
             refreshFacebookPlayer();
             refreshYouTubePlayer();
             
             setInterval(updateAll, 1000);
-            setInterval(runScheduledTimeTicker, 1000);
         });
     </script>
 </body>
