@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instant Complete-Word Captioner</title>
+    <title>Instant Captioner (With Auto-Recovery)</title>
     <style>
         :root {
             --bg-color: #0b0b0b;
@@ -41,7 +41,7 @@
             opacity: 0.35;
         }
 
-        /* Caption Presentation Space - Expanded to take full height */
+        /* Caption Presentation Space */
         #caption-container {
             width: 100%;
             height: 100vh;
@@ -50,13 +50,11 @@
             font-weight: 700;
             line-height: 1.3;
             letter-spacing: -0.5px;
-            z-index: 2; /* Sits below buttons but above background canvas */
-            
-            /* Crucial Layout Alignment Adjustments */
+            z-index: 2;
             display: flex;
             flex-direction: column;
             justify-content: flex-end; 
-            padding: 7rem 3rem 4rem 3rem; /* Generous 7rem top padding keeps text clear of buttons */
+            padding: 7rem 3rem 4rem 3rem;
         }
 
         #caption-container::-webkit-scrollbar { width: 0px; background: transparent; }
@@ -82,38 +80,7 @@
             }
         }
 
-        /* Status Indicator */
-        #status-indicator {
-            position: absolute;
-            bottom: 28vh;
-            left: 3rem;
-            font-size: 1.8rem;
-            color: #444;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            animation: pulse 1.8s infinite ease-in-out;
-            transition: opacity 0.2s ease;
-            z-index: 3;
-        }
-
-        #status-indicator.hidden { opacity: 0; pointer-events: none; }
-
-        @keyframes pulse {
-            0% { opacity: 0.3; }
-            50% { opacity: 0.8; }
-            100% { opacity: 0.3; }
-        }
-
-        .dot {
-            width: 10px;
-            height: 10px;
-            background-color: #00ffcc;
-            border-radius: 50%;
-        }
-
-        /* Floating Circular Control Array - Forced over everything */
+        /* Floating Circular Control Array */
         #floating-controls {
             position: absolute;
             top: 1.5rem;
@@ -121,7 +88,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
-            z-index: 100; /* Master Layer Priority override */
+            z-index: 100;
             transition: opacity 0.3s ease;
         }
 
@@ -152,6 +119,18 @@
             background: rgba(50, 50, 50, 0.95);
             transform: scale(1.05);
         }
+
+        /* Floating Error Banner if microphone access is blocked */
+        #error-display {
+            position: absolute;
+            bottom: 2rem;
+            left: 3rem;
+            font-size: 1.5rem;
+            color: #cc2929;
+            font-weight: 600;
+            z-index: 3;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -164,7 +143,7 @@
         <button class="btn-circle" id="fullscreen-btn" title="Toggle Fullscreen">⛶</button>
     </div>
 
-    <div id="status-indicator"><div class="dot"></div>Waiting for audio...</div>
+    <div id="error-display">❌ Microphone Access Denied</div>
 
     <div id="caption-container">
         <div id="caption-wrapper"></div>
@@ -182,13 +161,13 @@
         const floatingControls = document.getElementById('floating-controls');
         const container = document.getElementById('caption-container');
         const wrapper = document.getElementById('caption-wrapper');
-        const statusIndicator = document.getElementById('status-indicator');
+        const errorDisplay = document.getElementById('error-display');
         const canvas = document.getElementById('audio-monitor');
         const canvasCtx = canvas.getContext('2d');
 
         let recognition;
         let controlTimeout;
-        let statusTimeout;
+        let watchdogTimeout; // The 5-second freeze detector
         let currentFontSize = 4.5;
         
         let audioCtx;
@@ -197,19 +176,31 @@
         let source;
 
         let committedWordCount = 0;
+        let isStalled = false;
+        let speechTimestamp = Date.now();
 
         function initRecognition() {
+            if (recognition) {
+                try {
+                    recognition.onend = null;
+                    recognition.stop();
+                } catch(e) { console.log("Cleaning up old instance."); }
+            }
+
             recognition = new SpeechRecognition();
             recognition.continuous = true;
             recognition.interimResults = true; 
             recognition.lang = 'fil-PH';
 
             recognition.onend = () => {
-                recognition.start(); 
+                if (!isStalled) {
+                    recognition.start();
+                }
             };
 
             recognition.onresult = (event) => {
-                showWaitingIndicator(false);
+                isStalled = false;
+                speechTimestamp = Date.now(); // Reset time tracking whenever raw audio stream updates
 
                 let interimScript = "";
                 let finalScript = "";
@@ -228,6 +219,8 @@
                     processCompleteWordsOnly(combinedTranscript);
                 }
             };
+            
+            kickWatchdog();
         }
 
         function processCompleteWordsOnly(fullText) {
@@ -245,9 +238,9 @@
                     }
                 }
                 committedWordCount = totalCompleteWords;
+                speechTimestamp = Date.now(); // Reset on confirmed output tracking matrix
+                kickWatchdog();
             }
-
-            resetSilenceTimer();
         }
 
         function appendWordElement(word) {
@@ -266,22 +259,30 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        function showWaitingIndicator(show) {
-            if (show) statusIndicator.classList.remove('hidden');
-            else statusIndicator.classList.add('hidden');
-        }
-
-        function resetSilenceTimer() {
-            clearTimeout(statusTimeout);
-            statusTimeout = setTimeout(() => {
-                showWaitingIndicator(true);
-                committedWordCount = 0;
-            }, 3000);
+        // Silent Watchdog optimization
+        function kickWatchdog() {
+            clearTimeout(watchdogTimeout);
+            
+            watchdogTimeout = setTimeout(() => {
+                const idleTime = Date.now() - speechTimestamp;
+                
+                // If it has been more than 5 seconds since the last captured result,
+                // and the stream hasn't been deliberately resting, force a clean instance refresh.
+                if (idleTime >= 5000 && committedWordCount > 0) {
+                    console.warn("Speech engine stall detected. Forcing background recovery...");
+                    isStalled = true;
+                    committedWordCount = 0;
+                    
+                    initRecognition();
+                    recognition.start();
+                }
+            }, 5000);
         }
 
         async function setupAudioMonitor() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                errorDisplay.style.display = "none";
                 
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioCtx.createAnalyser();
@@ -302,7 +303,7 @@
                 recognition.start();
             } catch (err) {
                 console.error("Audio hardware interface error:", err);
-                statusIndicator.innerHTML = "<span style='color:#cc2929;'>❌ Microphone Access Denied</span>";
+                errorDisplay.style.display = "block";
             }
         }
 
