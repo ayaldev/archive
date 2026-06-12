@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>In-Browser RVC TTS Player</title>
+    <title>In-Browser Full RVC ONNX Pipeline</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script type="module">
-        import { AutoTokenizer } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/+esm";
+        import { pipeline, AutoProcessor, AutoModel } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.0/+esm";
         import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/+esm";
 
         // Route WebAssembly asset pointers back to the CDN distribution path
@@ -25,7 +25,9 @@
         const pitchValue = document.getElementById('pitchValue');
         const audioPlayer = document.getElementById('audioPlayer');
 
-        let tokenizer = null;
+        let ttsPipeline = null;
+        let featureExtractor = null;
+        let featureModel = null;
         let rvcSession = null;
         
         const RVC_MODEL_URL = "https://huggingface.co/ayaldev/rnrvc/resolve/main/normal200.onnx?download=true";
@@ -35,22 +37,21 @@
             pitchValue.textContent = e.target.value > 0 ? `+${e.target.value}` : e.target.value;
         });
 
-        // Initialize and warm up models completely client-side
+        // Initialize and warm up all necessary components completely client-side
         async function initApp() {
             try {
-                updateStatus("Loading Text Tokenizer...", "animate-pulse text-blue-400");
-                
-                // Load a lightweight text phoneme tokenizer configuration
-                tokenizer = await AutoTokenizer.from_pretrained("Xenova/gpt-4o");
+                updateStatus("Loading Frontend TTS Engine...", "animate-pulse text-blue-400");
+                ttsPipeline = await pipeline('text-to-speech', 'Xenova/mms-tts-eng', { quantized: true });
 
-                updateStatus("Fetching your Custom ONNX Voicebank (~50MB)...", "animate-pulse text-purple-400");
-                
-                // Direct allocation of your hosted weights into ONNX Runtime Web
-                rvcSession = await ort.InferenceSession.create(RVC_MODEL_URL, {
-                    executionProviders: ['wasm']
-                });
+                updateStatus("Loading Feature Extraction Layers (Hubert/ContentVec)...", "animate-pulse text-amber-400");
+                // Using a web-compatible feature extractor to generate the 'phone' tensor layers
+                featureExtractor = await AutoProcessor.from_pretrained("Xenova/hubert-base-ls960");
+                featureModel = await AutoModel.from_pretrained("Xenova/hubert-base-ls960", { quantized: true });
 
-                updateStatus("Voice environment loaded successfully!", "text-green-400 font-semibold");
+                updateStatus("Allocating converted RVC ONNX model (~50MB)...", "animate-pulse text-purple-400");
+                rvcSession = await ort.InferenceSession.create(RVC_MODEL_URL, { executionProviders: ['wasm'] });
+
+                updateStatus("All models loaded successfully!", "text-green-400 font-semibold");
                 generateBtn.disabled = false;
                 progressEl.classList.add('hidden');
             } catch (error) {
@@ -64,7 +65,7 @@
             statusEl.className = `text-sm text-center mt-2 ${classes}`;
         }
 
-        // Process Text -> Phoneme Mapping -> Direct Model Inference
+        // Execution Pipeline: Text -> Wave -> Feature Extractor -> RVC ONNX Matrix
         async function handleSynthesis() {
             const text = txtInput.value.trim();
             const pitchShift = parseInt(pitchInput.value, 10);
@@ -73,33 +74,43 @@
             try {
                 generateBtn.disabled = true;
                 progressEl.classList.remove('hidden');
-                progressBarEl.style.width = "40%";
-                updateStatus("Converting text string into tokenized phonemes...", "text-blue-400 animate-pulse");
-
-                // Convert user string text into structural token sequences
-                const { input_ids } = await tokenizer(text);
-                const phoneTokens = Array.from(input_ids.data).map(val => BigInt(val));
                 
-                progressBarEl.style.width = "70%";
-                updateStatus("Running model tensor pass...", "text-purple-400 animate-pulse");
+                // 1. Generate baseline text-to-speech waveform
+                progressBarEl.style.width = "25%";
+                updateStatus("Synthesizing base vocal wave...", "text-blue-400 animate-pulse");
+                const baseOutput = await ttsPipeline(text);
+                const rawAudioFloats = baseOutput.audio;
 
-                // Explicitly mapping 'phone' and 'pitch' token requirements matching your specific model signature
+                // 2. Extract hidden state embeddings to satisfy the 'phone' input requirement
+                progressBarEl.style.width = "50%";
+                updateStatus("Extracting hidden audio features ('phone' vector)...", "text-amber-400 animate-pulse");
+                const processedFeatures = await featureExtractor(rawAudioFloats, { sampling_rate: 16000 });
+                const modelOutputs = await featureModel(processedFeatures);
+                
+                // 'last_hidden_state' matches the multidimensional shape RVC models expect for 'phone'
+                const phoneFeatures = modelOutputs.last_hidden_state.data; 
+                const dimensions = modelOutputs.last_hidden_state.dims; // [batch, frames, feature_dim]
+
+                progressBarEl.style.width = "75%";
+                updateStatus("Executing custom RVC ONNX voice conversion...", "text-purple-400 animate-pulse");
+
+                // 3. Construct input feeds mapping to the exported model signature
                 const rvcInputs = {
-                    "phone": new ort.Tensor('int64', new BigInt64Array(phoneTokens), [1, phoneTokens.length]),
+                    "phone": new ort.Tensor('float32', phoneFeatures, dimensions),
                     "pitch": new ort.Tensor('int64', new BigInt64Array([BigInt(pitchShift)]), [1])
                 };
 
-                // Execute the ONNX inference pass directly inside the browser sandbox
+                // Execute inference pass
                 const outputMap = await rvcSession.run(rvcInputs);
                 const outputTensor = outputMap[rvcSession.outputNames[0]];
                 const outputFloats = outputTensor.data;
 
-                // Rebuild processed sound vector back into HTML audio elements
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-                const finalBuffer = audioContext.createBuffer(1, outputFloats.length, 24000);
+                // 4. Output the processed sound array back to the web browser interface
+                const targetSampleRate = 24000; // Standard RVC model default sample rate output tier
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: targetSampleRate });
+                const finalBuffer = audioContext.createBuffer(1, outputFloats.length, targetSampleRate);
                 finalBuffer.getChannelData(0).set(outputFloats);
 
-                // Export to standard playable Blob URL without a database server
                 const blob = await bufferToWavBlob(finalBuffer);
                 const audioUrl = URL.createObjectURL(blob);
                 
@@ -107,7 +118,7 @@
                 audioPlayer.classList.remove('hidden');
                 
                 progressBarEl.style.width = "100%";
-                updateStatus("Audio generation finished!", "text-green-400 font-semibold");
+                updateStatus("Voice conversion finished!", "text-green-400 font-semibold");
             } catch (err) {
                 console.error(err);
                 updateStatus(`Synthesis error: ${err.message}`, "text-red-400");
@@ -116,7 +127,7 @@
             }
         }
 
-        // Helper function mapping PCM arrays straight into a standard downloadable WAV container
+        // Standard PCM wave header converter
         function bufferToWavBlob(audioBuffer) {
             const numOfChan = audioBuffer.numberOfChannels;
             const length = audioBuffer.length * numOfChan * 2 + 44;
@@ -126,6 +137,9 @@
             
             let i, sample, offset = 0, pos = 0;
 
+            /*************************************************************************
+             * Binary WAV specification mapping
+             *************************************************************************/
             function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
             function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
 
@@ -153,11 +167,11 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
 
     <div class="bg-slate-800 p-6 rounded-2xl shadow-xl w-full max-w-lg border border-slate-700">
-        <h1 class="text-xl font-bold text-center mb-1 text-purple-400">Direct End-to-End TTS</h1>
-        <p class="text-xs text-slate-400 text-center mb-6">Zero-Server Client-Side Phoneme Generation</p>
+        <h1 class="text-xl font-bold text-center mb-1 text-purple-400">RVC ONNX Pipeline</h1>
+        <p class="text-xs text-slate-400 text-center mb-6">Text → Feature Extractor → Custom Voice Output</p>
 
         <div class="bg-slate-950 p-3 rounded-lg border border-slate-900 mb-4">
-            <div id="status" class="text-sm text-center text-slate-400">Loading system nodes...</div>
+            <div id="status" class="text-sm text-center text-slate-400">Loading system dependencies...</div>
             <div id="progress" class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                 <div id="progressBar" class="bg-purple-500 h-1.5 w-0 transition-all duration-300"></div>
             </div>
