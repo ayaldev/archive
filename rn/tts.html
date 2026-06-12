@@ -6,15 +6,19 @@
     <title>In-Browser Full RVC ONNX Pipeline</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script type="module">
-        import { pipeline, AutoProcessor, AutoModel } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.0/+esm";
+        import { pipeline, AutoProcessor, AutoModel, env } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.0/+esm";
         import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/+esm";
 
         // Route WebAssembly asset pointers back to the CDN distribution path
         ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
         
-        // Force single-threading to bypass Cross-Origin Isolation restrictions
-        ort.env.wasm.numThreads = 1;
+        // CRITICAL FIXES FOR THE FETCH ERRORS:
+        ort.env.wasm.numThreads = 1; // Force ONNX to run single-threaded
+        ort.env.wasm.proxy = false;  // Turn off multi-threaded background web worker proxying
 
+        // Force Transformers.js config layers to adhere strictly to single-threaded modes
+        env.backend = 'wasm';
+        
         // UI Element References
         const statusEl = document.getElementById('status');
         const progressEl = document.getElementById('progress');
@@ -41,15 +45,23 @@
         async function initApp() {
             try {
                 updateStatus("Loading Frontend TTS Engine...", "animate-pulse text-blue-400");
-                ttsPipeline = await pipeline('text-to-speech', 'Xenova/mms-tts-eng', { quantized: true });
+                // Explicitly pass execution providers and restrict thread compilation bounds
+                ttsPipeline = await pipeline('text-to-speech', 'Xenova/mms-tts-eng', { 
+                    quantized: true,
+                    session_options: { executionProviders: ['wasm'], numThreads: 1 }
+                });
 
-                updateStatus("Loading Feature Extraction Layers (Hubert/ContentVec)...", "animate-pulse text-amber-400");
-                // Using a web-compatible feature extractor to generate the 'phone' tensor layers
+                updateStatus("Loading Feature Extraction Layers...", "animate-pulse text-amber-400");
                 featureExtractor = await AutoProcessor.from_pretrained("Xenova/hubert-base-ls960");
-                featureModel = await AutoModel.from_pretrained("Xenova/hubert-base-ls960", { quantized: true });
+                featureModel = await AutoModel.from_pretrained("Xenova/hubert-base-ls960", { 
+                    quantized: true,
+                    session_options: { executionProviders: ['wasm'], numThreads: 1 }
+                });
 
                 updateStatus("Allocating converted RVC ONNX model (~50MB)...", "animate-pulse text-purple-400");
-                rvcSession = await ort.InferenceSession.create(RVC_MODEL_URL, { executionProviders: ['wasm'] });
+                rvcSession = await ort.InferenceSession.create(RVC_MODEL_URL, { 
+                    executionProviders: ['wasm'] 
+                });
 
                 updateStatus("All models loaded successfully!", "text-green-400 font-semibold");
                 generateBtn.disabled = false;
@@ -87,9 +99,8 @@
                 const processedFeatures = await featureExtractor(rawAudioFloats, { sampling_rate: 16000 });
                 const modelOutputs = await featureModel(processedFeatures);
                 
-                // 'last_hidden_state' matches the multidimensional shape RVC models expect for 'phone'
                 const phoneFeatures = modelOutputs.last_hidden_state.data; 
-                const dimensions = modelOutputs.last_hidden_state.dims; // [batch, frames, feature_dim]
+                const dimensions = modelOutputs.last_hidden_state.dims; 
 
                 progressBarEl.style.width = "75%";
                 updateStatus("Executing custom RVC ONNX voice conversion...", "text-purple-400 animate-pulse");
@@ -106,7 +117,7 @@
                 const outputFloats = outputTensor.data;
 
                 // 4. Output the processed sound array back to the web browser interface
-                const targetSampleRate = 24000; // Standard RVC model default sample rate output tier
+                const targetSampleRate = 24000; 
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: targetSampleRate });
                 const finalBuffer = audioContext.createBuffer(1, outputFloats.length, targetSampleRate);
                 finalBuffer.getChannelData(0).set(outputFloats);
@@ -137,9 +148,6 @@
             
             let i, sample, offset = 0, pos = 0;
 
-            /*************************************************************************
-             * Binary WAV specification mapping
-             *************************************************************************/
             function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
             function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
 
