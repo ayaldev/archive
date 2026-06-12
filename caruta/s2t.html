@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instant Captioner (With Auto-Recovery)</title>
+    <title>Instant Captioner (Aggressive Recovery)</title>
     <style>
         :root {
             --bg-color: #0b0b0b;
@@ -120,7 +120,6 @@
             transform: scale(1.05);
         }
 
-        /* Floating Error Banner if microphone access is blocked */
         #error-display {
             position: absolute;
             bottom: 2rem;
@@ -167,7 +166,7 @@
 
         let recognition;
         let controlTimeout;
-        let watchdogTimeout; // The 5-second freeze detector
+        let watchdogInterval; // High-frequency polling interval loop
         let currentFontSize = 4.5;
         
         let audioCtx;
@@ -176,15 +175,17 @@
         let source;
 
         let committedWordCount = 0;
-        let isStalled = false;
-        let speechTimestamp = Date.now();
+        let lastActivityTime = Date.now(); // Strictly tracks timestamps across ALL systems
 
         function initRecognition() {
+            // Aggressive tear-down of previous instance
             if (recognition) {
                 try {
                     recognition.onend = null;
-                    recognition.stop();
-                } catch(e) { console.log("Cleaning up old instance."); }
+                    recognition.onerror = null;
+                    recognition.onresult = null;
+                    recognition.abort(); // Hard stop connections instantly
+                } catch(e) { console.log("Aborted stale engine context."); }
             }
 
             recognition = new SpeechRecognition();
@@ -193,14 +194,21 @@
             recognition.lang = 'fil-PH';
 
             recognition.onend = () => {
-                if (!isStalled) {
-                    recognition.start();
+                // If it ended naturally without watchdog killing it, revive immediately
+                console.log("Engine closed naturally. Reviving...");
+                try { recognition.start(); } catch(e) {}
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech Error Event:", event.error);
+                if (event.error === 'network') {
+                    lastActivityTime = 0; // Force watchdog to execute a hard reset loop
                 }
             };
 
             recognition.onresult = (event) => {
-                isStalled = false;
-                speechTimestamp = Date.now(); // Reset time tracking whenever raw audio stream updates
+                // Keep activity updated if the engine is actively feeding live data stream changes
+                lastActivityTime = Date.now(); 
 
                 let interimScript = "";
                 let finalScript = "";
@@ -219,8 +227,6 @@
                     processCompleteWordsOnly(combinedTranscript);
                 }
             };
-            
-            kickWatchdog();
         }
 
         function processCompleteWordsOnly(fullText) {
@@ -238,8 +244,7 @@
                     }
                 }
                 committedWordCount = totalCompleteWords;
-                speechTimestamp = Date.now(); // Reset on confirmed output tracking matrix
-                kickWatchdog();
+                lastActivityTime = Date.now(); // Reset timer precisely when a full token clears the stack
             }
         }
 
@@ -259,24 +264,27 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // Silent Watchdog optimization
-        function kickWatchdog() {
-            clearTimeout(watchdogTimeout);
+        // Independent, continuous Watchdog loop running on a separate browser clock
+        function startAggressiveWatchdog() {
+            clearInterval(watchdogInterval);
             
-            watchdogTimeout = setTimeout(() => {
-                const idleTime = Date.now() - speechTimestamp;
+            watchdogInterval = setInterval(() => {
+                const timeSinceLastActive = Date.now() - lastActivityTime;
                 
-                // If it has been more than 5 seconds since the last captured result,
-                // and the stream hasn't been deliberately resting, force a clean instance refresh.
-                if (idleTime >= 5000 && committedWordCount > 0) {
-                    console.warn("Speech engine stall detected. Forcing background recovery...");
-                    isStalled = true;
+                // If 5 full seconds pass with zero engine output activity,
+                // assume a silent background freeze has occurred and forcefully nuke the pipeline.
+                if (timeSinceLastActive >= 5000) {
+                    console.warn(`[WATCHDOG] System stall hit (${timeSinceLastActive}ms). Executing forced reinitialization now.`);
+                    
                     committedWordCount = 0;
+                    lastActivityTime = Date.now(); // Reset time anchor to prevent loop collisions
                     
                     initRecognition();
-                    recognition.start();
+                    try {
+                        recognition.start();
+                    } catch(e) { console.error("Error forced restarting recognition:", e); }
                 }
-            }, 5000);
+            }, 1000); // Poll verification checks every single second aggressively
         }
 
         async function setupAudioMonitor() {
@@ -299,8 +307,11 @@
                 
                 drawWaveform();
                 
+                // Fire speech layers and start autonomous monitor clock
                 initRecognition();
-                recognition.start();
+                try { recognition.start(); } catch(e) {}
+                startAggressiveWatchdog();
+                
             } catch (err) {
                 console.error("Audio hardware interface error:", err);
                 errorDisplay.style.display = "block";
