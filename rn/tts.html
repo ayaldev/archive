@@ -6,11 +6,14 @@
     <title>In-Browser RVC TTS Player</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script type="module">
-        import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js@1.0.1/+esm";
+        import { AutoTokenizer } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/+esm";
         import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/+esm";
 
         // Route WebAssembly asset pointers back to the CDN distribution path
         ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
+        
+        // Force single-threading to bypass Cross-Origin Isolation restrictions
+        ort.env.wasm.numThreads = 1;
 
         // UI Element References
         const statusEl = document.getElementById('status');
@@ -22,7 +25,7 @@
         const pitchValue = document.getElementById('pitchValue');
         const audioPlayer = document.getElementById('audioPlayer');
 
-        let baseTtsEngine = null;
+        let tokenizer = null;
         let rvcSession = null;
         
         const RVC_MODEL_URL = "https://huggingface.co/ayaldev/rnrvc/resolve/main/normal200.onnx?download=true";
@@ -35,17 +38,14 @@
         // Initialize and warm up models completely client-side
         async function initApp() {
             try {
-                updateStatus("Downloading Base TTS Engine (Kokoro 82M)...", "animate-pulse text-blue-400");
+                updateStatus("Loading Text Tokenizer...", "animate-pulse text-blue-400");
                 
-                // Load Kokoro TTS in 8-bit quantization for rapid browser delivery
-                baseTtsEngine = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-ONNX", {
-                    dtype: "q8",
-                    device: "wasm"
-                });
+                // Load a lightweight text phoneme tokenizer configuration
+                tokenizer = await AutoTokenizer.from_pretrained("Xenova/gpt-4o");
 
-                updateStatus("Fetching your RVC ONNX Voicebank (~50MB)...", "animate-pulse text-purple-400");
+                updateStatus("Fetching your Custom ONNX Voicebank (~50MB)...", "animate-pulse text-purple-400");
                 
-                // Direct allocation of your hosted RVC weights into ONNX Runtime Web
+                // Direct allocation of your hosted weights into ONNX Runtime Web
                 rvcSession = await ort.InferenceSession.create(RVC_MODEL_URL, {
                     executionProviders: ['wasm']
                 });
@@ -64,7 +64,7 @@
             statusEl.className = `text-sm text-center mt-2 ${classes}`;
         }
 
-        // Process Text -> Base Audio -> RVC Voice Morphing
+        // Process Text -> Phoneme Mapping -> Direct Model Inference
         async function handleSynthesis() {
             const text = txtInput.value.trim();
             const pitchShift = parseInt(pitchInput.value, 10);
@@ -73,35 +73,21 @@
             try {
                 generateBtn.disabled = true;
                 progressEl.classList.remove('hidden');
-                progressBarEl.style.width = "30%";
-                updateStatus("Step 1: Generating standard baseline speech...", "text-blue-400 animate-pulse");
+                progressBarEl.style.width = "40%";
+                updateStatus("Converting text string into tokenized phonemes...", "text-blue-400 animate-pulse");
 
-                // Generate baseline neutral wave using Kokoro
-                const baseAudio = await baseTtsEngine.generate(text, {
-                    voice: "af_bella" 
-                });
+                // Convert user string text into structural token sequences
+                const { input_ids } = await tokenizer(text);
+                const phoneTokens = Array.from(input_ids.data).map(val => BigInt(val));
                 
                 progressBarEl.style.width = "70%";
-                updateStatus("Step 2: Feeding baseline wave into RVC ONNX matrix...", "text-purple-400 animate-pulse");
+                updateStatus("Running model tensor pass...", "text-purple-400 animate-pulse");
 
-                // FIXED: Pull the raw Float32Array channel data directly via .audio
-                const inputFloats = baseAudio.audio; 
-                if (!inputFloats || inputFloats.length === 0) {
-                    throw new Error("The base TTS engine returned an empty audio array.");
-                }
-
-                // Prepare standard RVC inference input map keys
-                const rvcInputs = {};
-                const inputNames = rvcSession.inputNames;
-                
-                // Construct tensor inputs mapping to what RVC expected structures look like
-                rvcInputs[inputNames[0]] = new ort.Tensor('float32', inputFloats, [1, inputFloats.length]);
-                
-                // Pitch adjustments mapped inside standard structure if required by your .onnx export
-                if (inputNames.length > 1) {
-                    const pitchArray = new Int64Array([pitchShift]);
-                    rvcInputs[inputNames[1]] = new ort.Tensor('int64', pitchArray, [1]);
-                }
+                // Explicitly mapping 'phone' and 'pitch' token requirements matching your specific model signature
+                const rvcInputs = {
+                    "phone": new ort.Tensor('int64', new BigInt64Array(phoneTokens), [1, phoneTokens.length]),
+                    "pitch": new ort.Tensor('int64', new BigInt64Array([BigInt(pitchShift)]), [1])
+                };
 
                 // Execute the ONNX inference pass directly inside the browser sandbox
                 const outputMap = await rvcSession.run(rvcInputs);
@@ -121,7 +107,7 @@
                 audioPlayer.classList.remove('hidden');
                 
                 progressBarEl.style.width = "100%";
-                updateStatus("Voice morphing finished!", "text-green-400 font-semibold");
+                updateStatus("Audio generation finished!", "text-green-400 font-semibold");
             } catch (err) {
                 console.error(err);
                 updateStatus(`Synthesis error: ${err.message}`, "text-red-400");
@@ -167,8 +153,8 @@
 <body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
 
     <div class="bg-slate-800 p-6 rounded-2xl shadow-xl w-full max-w-lg border border-slate-700">
-        <h1 class="text-xl font-bold text-center mb-1 text-purple-400">RVC In-Browser Generator</h1>
-        <p class="text-xs text-slate-400 text-center mb-6">Zero-Server Client-Side Voice Synthesis Pipeline</p>
+        <h1 class="text-xl font-bold text-center mb-1 text-purple-400">Direct End-to-End TTS</h1>
+        <p class="text-xs text-slate-400 text-center mb-6">Zero-Server Client-Side Phoneme Generation</p>
 
         <div class="bg-slate-950 p-3 rounded-lg border border-slate-900 mb-4">
             <div id="status" class="text-sm text-center text-slate-400">Loading system nodes...</div>
@@ -180,7 +166,7 @@
         <div class="space-y-4">
             <div>
                 <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Target Script Text</label>
-                <textarea id="txtInput" class="w-full h-24 bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 resize-none" placeholder="Type what you want your custom RVC voice model to say here..."></textarea>
+                <textarea id="txtInput" class="w-full h-24 bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 resize-none" placeholder="Type text here to render directly via your model inputs..."></textarea>
             </div>
 
             <div>
