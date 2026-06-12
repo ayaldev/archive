@@ -9,7 +9,7 @@
         import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js@1.0.1/+esm";
         import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/+esm";
 
-        // CRITICAL FIX: Manually route the WebAssembly asset pointers back to the CDN distribution path
+        // Route WebAssembly asset pointers back to the CDN distribution path
         ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
 
         // UI Element References
@@ -37,15 +37,15 @@
             try {
                 updateStatus("Downloading Base TTS Engine (Kokoro 82M)...", "animate-pulse text-blue-400");
                 
-                // 1. Load Kokoro TTS in 8-bit quantization for rapid browser delivery
+                // Load Kokoro TTS in 8-bit quantization for rapid browser delivery
                 baseTtsEngine = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-ONNX", {
                     dtype: "q8",
-                    device: "wasm" // Fallback seamlessly to WebAssembly for wide device support
+                    device: "wasm"
                 });
 
                 updateStatus("Fetching your RVC ONNX Voicebank (~50MB)...", "animate-pulse text-purple-400");
                 
-                // 2. Direct allocation of your hosted RVC weights into ONNX Runtime Web
+                // Direct allocation of your hosted RVC weights into ONNX Runtime Web
                 rvcSession = await ort.InferenceSession.create(RVC_MODEL_URL, {
                     executionProviders: ['wasm']
                 });
@@ -84,9 +84,11 @@
                 progressBarEl.style.width = "70%";
                 updateStatus("Step 2: Feeding baseline wave into RVC ONNX matrix...", "text-purple-400 animate-pulse");
 
-                // Get raw floating point audio data arrays
-                const rawAudioBuffer = baseAudio.audioBuffer; 
-                const inputFloats = rawAudioBuffer.getChannelData(0);
+                // FIXED: Pull the raw Float32Array channel data directly via .audio
+                const inputFloats = baseAudio.audio; 
+                if (!inputFloats || inputFloats.length === 0) {
+                    throw new Error("The base TTS engine returned an empty audio array.");
+                }
 
                 // Prepare standard RVC inference input map keys
                 const rvcInputs = {};
@@ -106,7 +108,7 @@
                 const outputTensor = outputMap[rvcSession.outputNames[0]];
                 const outputFloats = outputTensor.data;
 
-                // 3. Rebuild processed sound vector back into HTML audio elements
+                // Rebuild processed sound vector back into HTML audio elements
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
                 const finalBuffer = audioContext.createBuffer(1, outputFloats.length, 24000);
                 finalBuffer.getChannelData(0).set(outputFloats);
