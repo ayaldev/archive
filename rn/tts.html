@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>In-Browser RVC TTS Player</title>
+    <!-- Tailwind CSS for basic styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Import ONNX Runtime Web and Transformers.js via ESM -->
+    <script type="module">
+        import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js@1.0.1/+esm";
+        import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/+esm";
+
+        // UI Element References
+        const statusEl = document.getElementById('status');
+        const progressEl = document.getElementById('progress');
+        const progressBarEl = document.getElementById('progressBar');
+        const generateBtn = document.getElementById('generateBtn');
+        const txtInput = document.getElementById('txtInput');
+        const pitchInput = document.getElementById('pitchInput');
+        const pitchValue = document.getElementById('pitchValue');
+        const audioPlayer = document.getElementById('audioPlayer');
+
+        let baseTtsEngine = null;
+        let rvcSession = null;
+        
+        const RVC_MODEL_URL = "https://huggingface.co/ayaldev/rnrvc/resolve/main/normal200.onnx?download=true";
+
+        // Update pitch label text on slider drag
+        pitchInput.addEventListener('input', (e) => {
+            pitchValue.textContent = e.target.value > 0 ? `+${e.target.value}` : e.target.value;
+        });
+
+        // Initialize and warm up models completely client-side
+        async function initApp() {
+            try {
+                updateStatus("Downloading Base TTS Engine (Kokoro 82M)...", "animate-pulse text-blue-500");
+                
+                // 1. Load Kokoro TTS in 8-bit quantization for rapid browser delivery
+                baseTtsEngine = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-ONNX", {
+                    dtype: "q8",
+                    device: "wasm" // Fallback seamlessly to WebAssembly for wide device support
+                });
+
+                updateStatus("Fetching your RVC ONNX Voicebank (~50MB)...", "animate-pulse text-purple-500");
+                
+                // 2. Direct allocation of your hosted RVC weights into ONNX Runtime Web
+                // Utilizes browser caching for subsequent site visits
+                rvcSession = await ort.InferenceSession.create(RVC_MODEL_URL, {
+                    executionProviders: ['wasm']
+                });
+
+                updateStatus("Voice environment loaded successfully!", "text-green-500 font-semibold");
+                generateBtn.disabled = false;
+                progressEl.classList.add('hidden');
+            } catch (error) {
+                console.error(error);
+                updateStatus(`Initialization failed: ${error.message}`, "text-red-500 font-bold");
+            }
+        }
+
+        function updateStatus(msg, classes) {
+            statusEl.innerText = msg;
+            statusEl.className = `text-sm text-center mt-2 ${classes}`;
+        }
+
+        // Process Text -> Base Audio -> RVC Voice Morphing
+        async function handleSynthesis() {
+            const text = txtInput.value.trim();
+            const pitchShift = parseInt(pitchInput.value, 10);
+            if (!text) return;
+
+            try {
+                generateBtn.disabled = true;
+                progressEl.classList.remove('hidden');
+                progressBarEl.style.width = "30%";
+                updateStatus("Step 1: Generating standard baseline speech...", "text-blue-500 animate-pulse");
+
+                // Generate baseline neutral wave using Kokoro
+                const baseAudio = await baseTtsEngine.generate(text, {
+                    voice: "af_bella" 
+                });
+                
+                progressBarEl.style.width = "70%";
+                updateStatus("Step 2: Feeding baseline wave into RVC ONNX matrix...", "text-purple-500 animate-pulse");
+
+                // Get raw floating point audio data arrays
+                const rawAudioBuffer = baseAudio.audioBuffer; 
+                const inputFloats = rawAudioBuffer.getChannelData(0);
+
+                // Prepare standard RVC inference input map keys
+                const rvcInputs = {};
+                const inputNames = rvcSession.inputNames;
+                
+                // Construct tensor inputs mapping to what RVC expected structures look like
+                rvcInputs[inputNames[0]] = new ort.Tensor('float32', inputFloats, [1, inputFloats.length]);
+                
+                // Pitch adjustments mapped inside standard structure if required by your .onnx export
+                if (inputNames.length > 1) {
+                    const pitchArray = new Int64Array([pitchShift]);
+                    rvcInputs[inputNames[1]] = new ort.Tensor('int64', pitchArray, [1]);
+                }
+
+                // Execute the ONNX inference pass directly inside the browser sandbox
+                const outputMap = await rvcSession.run(rvcInputs);
+                const outputTensor = outputMap[rvcSession.outputNames[0]];
+                const outputFloats = outputTensor.data;
+
+                // 3. Rebuild processed sound vector back into HTML audio elements
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                const finalBuffer = audioContext.createBuffer(1, outputFloats.length, 24000);
+                finalBuffer.getChannelData(0).set(outputFloats);
+
+                // Export to standard playable Blob URL without a database server
+                const blob = await bufferToWavBlob(finalBuffer);
+                const audioUrl = URL.createObjectURL(blob);
+                
+                audioPlayer.src = audioUrl;
+                audioPlayer.classList.remove('hidden');
+                
+                progressBarEl.style.width = "100%";
+                updateStatus("Voice morphing finished!", "text-green-500 font-semibold");
+            } catch (err) {
+                console.error(err);
+                updateStatus(`Synthesis error: ${err.message}`, "text-red-500");
+            } finally {
+                generateBtn.disabled = false;
+            }
+        }
+
+        // Helper function mapping PCM arrays straight into a standard downloadable WAV container
+        function bufferToWavBlob(audioBuffer) {
+            const numOfChan = audioBuffer.numberOfChannels,
+                length = audioBuffer.length * numOfChan * 2 + 44,
+                buffer = new ArrayBuffer(length),
+                view = new DataView(buffer),
+                channels = [], i, sample,
+                offset = 0,
+                pos = 0;
+
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+            setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+            setUint32(audioBuffer.sampleRate); setUint32(audioBuffer.sampleRate * 2 * numOfChan);
+            setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
+
+            for (i = 0; i < audioBuffer.numberOfChannels; i++) channels.push(audioBuffer.getChannelData(i));
+            while (pos < length) {
+                for (i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                    view.setInt16(pos, sample, true); pos += 2;
+                }
+                offset++;
+            }
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
+        generateBtn.addEventListener('click', handleSynthesis);
+    </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-slate-800 p-6 rounded-2xl shadow-xl w-full max-w-lg border border-slate-700">
+        <h1 class="text-xl font-bold text-center mb-1 text-purple-400">RVC In-Browser Generator</h1>
+        <p class="text-xs text-slate-400 text-center mb-6">Zero-Server Client-Side Voice Synthesis Pipeline</p>
+
+        <!-- Status Box -->
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 mb-4">
+            <div id="status" class="text-sm text-center text-slate-400">Loading system nodes...</div>
+            <div id="progress" class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div id="progressBar" class="bg-purple-500 h-1.5 w-0 transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <!-- Inputs Box -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Target Script Text</label>
+                <textarea id="txtInput" class="w-full h-24 bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-500 resize-none" placeholder="Type what you want your custom RVC voice model to say here..."></textarea>
+            </div>
+
+            <div>
+                <div class="flex justify-between text-xs font-semibold uppercase text-slate-400 mb-1">
+                    <span>Model Pitch Tuning</span>
+                    <span id="pitchValue" class="text-purple-400 font-mono">0</span>
+                </div>
+                <input id="pitchInput" type="range" min="-12" max="12" value="0" class="w-full accent-purple-500 h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <button id="generateBtn" disabled class="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-xl font-medium transition text-sm cursor-pointer shadow-lg shadow-purple-900/20">
+                Generate Voice Output
+            </button>
+
+            <div class="flex justify-center pt-2">
+                <audio id="audioPlayer" controls class="hidden w-full max-w-xs mt-2"></audio>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
