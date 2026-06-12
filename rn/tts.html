@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>In-Browser RVC TTS Player</title>
-    <!-- Tailwind CSS for basic styling -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- Import ONNX Runtime Web and Transformers.js via ESM -->
     <script type="module">
         import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js@1.0.1/+esm";
         import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/+esm";
@@ -34,7 +32,7 @@
         // Initialize and warm up models completely client-side
         async function initApp() {
             try {
-                updateStatus("Downloading Base TTS Engine (Kokoro 82M)...", "animate-pulse text-blue-500");
+                updateStatus("Downloading Base TTS Engine (Kokoro 82M)...", "animate-pulse text-blue-400");
                 
                 // 1. Load Kokoro TTS in 8-bit quantization for rapid browser delivery
                 baseTtsEngine = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-ONNX", {
@@ -42,7 +40,7 @@
                     device: "wasm" // Fallback seamlessly to WebAssembly for wide device support
                 });
 
-                updateStatus("Fetching your RVC ONNX Voicebank (~50MB)...", "animate-pulse text-purple-500");
+                updateStatus("Fetching your RVC ONNX Voicebank (~50MB)...", "animate-pulse text-purple-400");
                 
                 // 2. Direct allocation of your hosted RVC weights into ONNX Runtime Web
                 // Utilizes browser caching for subsequent site visits
@@ -50,12 +48,12 @@
                     executionProviders: ['wasm']
                 });
 
-                updateStatus("Voice environment loaded successfully!", "text-green-500 font-semibold");
+                updateStatus("Voice environment loaded successfully!", "text-green-400 font-semibold");
                 generateBtn.disabled = false;
                 progressEl.classList.add('hidden');
             } catch (error) {
                 console.error(error);
-                updateStatus(`Initialization failed: ${error.message}`, "text-red-500 font-bold");
+                updateStatus(`Initialization failed: ${error.message}`, "text-red-400 font-bold");
             }
         }
 
@@ -74,7 +72,7 @@
                 generateBtn.disabled = true;
                 progressEl.classList.remove('hidden');
                 progressBarEl.style.width = "30%";
-                updateStatus("Step 1: Generating standard baseline speech...", "text-blue-500 animate-pulse");
+                updateStatus("Step 1: Generating standard baseline speech...", "text-blue-400 animate-pulse");
 
                 // Generate baseline neutral wave using Kokoro
                 const baseAudio = await baseTtsEngine.generate(text, {
@@ -82,7 +80,7 @@
                 });
                 
                 progressBarEl.style.width = "70%";
-                updateStatus("Step 2: Feeding baseline wave into RVC ONNX matrix...", "text-purple-500 animate-pulse");
+                updateStatus("Step 2: Feeding baseline wave into RVC ONNX matrix...", "text-purple-400 animate-pulse");
 
                 // Get raw floating point audio data arrays
                 const rawAudioBuffer = baseAudio.audioBuffer; 
@@ -119,10 +117,10 @@
                 audioPlayer.classList.remove('hidden');
                 
                 progressBarEl.style.width = "100%";
-                updateStatus("Voice morphing finished!", "text-green-500 font-semibold");
+                updateStatus("Voice morphing finished!", "text-green-400 font-semibold");
             } catch (err) {
                 console.error(err);
-                updateStatus(`Synthesis error: ${err.message}`, "text-red-500");
+                updateStatus(`Synthesis error: ${err.message}`, "text-red-400");
             } finally {
                 generateBtn.disabled = false;
             }
@@ -130,13 +128,14 @@
 
         // Helper function mapping PCM arrays straight into a standard downloadable WAV container
         function bufferToWavBlob(audioBuffer) {
-            const numOfChan = audioBuffer.numberOfChannels,
-                length = audioBuffer.length * numOfChan * 2 + 44,
-                buffer = new ArrayBuffer(length),
-                view = new DataView(buffer),
-                channels = [], i, sample,
-                offset = 0,
-                pos = 0;
+            const numOfChan = audioBuffer.numberOfChannels;
+            const length = audioBuffer.length * numOfChan * 2 + 44;
+            const buffer = new ArrayBuffer(length);
+            const view = new DataView(buffer);
+            const channels = [];
+            
+            // Fixed loop increments variable assignment syntax
+            let i, sample, offset = 0, pos = 0;
 
             function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
             function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
@@ -168,15 +167,13 @@
         <h1 class="text-xl font-bold text-center mb-1 text-purple-400">RVC In-Browser Generator</h1>
         <p class="text-xs text-slate-400 text-center mb-6">Zero-Server Client-Side Voice Synthesis Pipeline</p>
 
-        <!-- Status Box -->
-        <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 mb-4">
+        <div class="bg-slate-950 p-3 rounded-lg border border-slate-900 mb-4">
             <div id="status" class="text-sm text-center text-slate-400">Loading system nodes...</div>
             <div id="progress" class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                 <div id="progressBar" class="bg-purple-500 h-1.5 w-0 transition-all duration-300"></div>
             </div>
         </div>
 
-        <!-- Inputs Box -->
         <div class="space-y-4">
             <div>
                 <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Target Script Text</label>
