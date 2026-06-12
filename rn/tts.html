@@ -9,6 +9,9 @@
         import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js@1.0.1/+esm";
         import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/+esm";
 
+        // CRITICAL FIX: Manually route the WebAssembly asset pointers back to the CDN distribution path
+        ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
+
         // UI Element References
         const statusEl = document.getElementById('status');
         const progressEl = document.getElementById('progress');
@@ -43,7 +46,6 @@
                 updateStatus("Fetching your RVC ONNX Voicebank (~50MB)...", "animate-pulse text-purple-400");
                 
                 // 2. Direct allocation of your hosted RVC weights into ONNX Runtime Web
-                // Utilizes browser caching for subsequent site visits
                 rvcSession = await ort.InferenceSession.create(RVC_MODEL_URL, {
                     executionProviders: ['wasm']
                 });
@@ -134,7 +136,6 @@
             const view = new DataView(buffer);
             const channels = [];
             
-            // Fixed loop increments variable assignment syntax
             let i, sample, offset = 0, pos = 0;
 
             function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
