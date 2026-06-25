@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Broadcast Monitor Grid</title>
     <style>
         /* Force structural containment across absolute window dimensions */
-        html, body {
+        html,
+        body {
             margin: 0;
             padding: 0;
             width: 100%;
@@ -42,7 +44,7 @@
             background-color: #111;
             box-sizing: border-box;
             border: 1px solid #1a1a1a;
-            
+
             /* Enforce vertical and horizontal centering layout rules */
             display: flex;
             justify-content: center;
@@ -84,8 +86,8 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+
             /* Keep completely hidden/transparent natively to avoid blocking video text or logos */
             opacity: 0;
             transition: opacity 0.3s ease, transform 0.2s ease, background-color 0.2s ease;
@@ -145,16 +147,22 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
+
 <body>
 
     <button class="manual-refresh-trigger" id="ui-refresh" title="Force Refresh Channels Instantly">
         <svg class="refresh-icon" viewBox="0 0 24 24">
-            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l6.73-6.19"/>
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l6.73-6.19" />
         </svg>
     </button>
 
@@ -176,12 +184,12 @@
         function initMatrix() {
             const grid = document.getElementById('matrix-grid');
             grid.innerHTML = ''; // Wipe matrix array fields clean upon reload execution
-            
+
             CHANNELS.forEach(channel => {
                 const cell = document.createElement('div');
                 cell.className = 'monitor-cell';
                 cell.id = `cell-${channel.id}`;
-                
+
                 cell.innerHTML = `
                     <div class="cell-loader" id="loader-${channel.id}">
                         <div class="spinner"></div>
@@ -190,7 +198,7 @@
                     <div class="video-container" id="player-${channel.id}"></div>
                 `;
                 grid.appendChild(cell);
-                
+
                 // Fire dynamic parse worker loops concurrently
                 processChannelFeed(channel);
             });
@@ -203,12 +211,12 @@
             const cacheBuster = `?updated=${timestamp}+${randomString}`;
 
             const targetUrl = `https://www.youtube.com/${channel.handle}/featured${cacheBuster}`;
-            const jinaApiEndpoint = `https://r.jina.ai/${targetUrl}`;
+            const jinaApiEndpoint = `https://r.ayaldev.com/${targetUrl}`;
 
             try {
                 const response = await fetch(jinaApiEndpoint);
                 if (!response.ok) throw new Error('Jina endpoint unreachable');
-                
+
                 const markdownText = await response.text();
 
                 // Advanced multi-pattern match strategy without hardcoded content dependencies
@@ -240,7 +248,7 @@
         function injectIframe(channelId, srcUrl) {
             const container = document.getElementById(`player-${channelId}`);
             const loader = document.getElementById(`loader-${channelId}`);
-            
+
             const iframe = document.createElement('iframe');
             iframe.src = srcUrl;
             iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
@@ -281,17 +289,19 @@
             }, 1000); // 1-second pulse checks keep operations lightweight but hyper-precise
         }
 
-        // Event Listeners initialization
-        window.addEventListener('DOMContentLoaded', () => {
-            initMatrix();
-            manageScheduleEngine();
-            
-            // Wire manual UI override action link
-            document.getElementById('ui-refresh').addEventListener('click', () => {
+        // Initialize the matrix and scheduler immediately on script load
+        initMatrix();
+        manageScheduleEngine();
+
+        // Wire manual UI override action link
+        const refreshBtn = document.getElementById('ui-refresh');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
                 console.log('[Manual User Sync Overrule Handled]');
                 initMatrix();
             });
-        });
+        }
     </script>
 </body>
+
 </html>

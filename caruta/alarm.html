@@ -25,12 +25,13 @@
             text-align: center;
         }
 
-        /* ROW 1: Embedded Livestream Player Layout */
-        .player-grid {
+        /* Grid Layouts */
+        .section-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 15px;
             margin-bottom: 20px;
+            align-items: start;
         }
 
         .player-panel {
@@ -51,26 +52,15 @@
             border: none;
         }
 
-        /* ROW 2: Metric Dashboard Panels Grid Layout */
-        .dual-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-
-        .device-panel {
+        /* Collapsible Box Styling */
+        .collapsible-box {
             background: #1e1e1e;
-            padding: 20px;
             border-radius: 12px;
             border: 1px solid #333;
-            text-align: left;
-            position: relative;
             overflow: hidden;
         }
 
-        .device-header {
-            font-size: 1.3rem;
+        .box-header {
             font-weight: bold;
             border-bottom: 1px solid #444;
             padding-bottom: 8px;
@@ -78,8 +68,38 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: relative;
+            background: #252525;
+            padding: 12px 15px;
+            cursor: pointer;
             z-index: 10;
+        }
+        .box-header:hover { background: #2a2a2a; }
+        .box-header .title { font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+        .box-header .toggle-icon { font-size: 0.8rem; color: #888; transition: transform 0.3s; }
+
+        .collapsed .box-header {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .box-content {
+            padding: 15px;
+            position: relative;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsed .box-content {
+            display: none;
+        }
+        .collapsed .box-header .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        /* Resizable Chat Boxes */
+        #fb-chat-box .box-content, #yt-chat-box .box-content {
+            resize: vertical;
+            overflow: auto;
+            min-height: 200px;
         }
 
         .ip-label { font-size: 0.85rem; color: #888; font-family: monospace; margin-right: 5px; }
@@ -140,28 +160,20 @@
             padding-right: 12px;
         }
 
-        .reboot-btn:hover:not(:disabled) .text {
+        .reboot-btn:hover .text {
             max-width: 70px;
             opacity: 1;
         }
-
-        .reboot-btn:disabled {
-            width: 32px !important;
-            background-color: #2a2a2e !important;
-            border-color: #222 !important;
-            color: #555 !important;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
         
-        .reboot-btn.rebooting-active:disabled {
+        .reboot-btn.rebooting-active {
+            pointer-events: none;
             width: 140px !important;
             background-color: #3e3e42 !important;
             border-color: #29292e !important;
             color: #a8a8b3 !important;
             border-radius: 6px;
         }
-        .reboot-btn.rebooting-active:disabled .text {
+        .reboot-btn.rebooting-active .text {
             max-width: 110px !important;
             opacity: 1 !important;
         }
@@ -217,6 +229,19 @@
 
         .meta-label { font-size: 0.7rem; color: #aaa; text-transform: uppercase; margin-bottom: 4px; }
         .meta-value { font-size: 1rem; font-weight: 600; color: #fff; }
+
+        /* Live Chat Containers */
+        .chat-container {
+            height: 100%;
+            min-height: 400px;
+            background: #0a0a0a;
+            border-radius: 4px;
+            border: 1px solid #333;
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+        }
+        .chat-container iframe { width: 100%; height: 100%; border: none; }
 
         /* Status Pills */
         .status-pill {
@@ -294,26 +319,40 @@
 
     <div class="main-container">
         
-        <div class="player-grid">
-            <div class="player-panel" id="fb-player-container"></div>
-            <div class="player-panel" id="yt-player-container"></div>
+        <!-- ROW 1: PLAYERS -->
+        <div class="section-grid">
+            <div id="fb-player-box" class="collapsible-box">
+                <div class="box-header" onclick="toggleRow('player')">
+                    <span class="title">🔵 FACEBOOK PLAYER <span class="toggle-icon">▼</span></span>
+                </div>
+                <div class="box-content">
+                    <div class="player-panel" id="fb-player-container"></div>
+                </div>
+            </div>
+            <div id="yt-player-box" class="collapsible-box">
+                <div class="box-header" onclick="toggleRow('player')">
+                    <span class="title">🔴 YOUTUBE PLAYER <span class="toggle-icon">▼</span></span>
+                </div>
+                <div class="box-content">
+                    <div class="player-panel" id="yt-player-container"></div>
+                </div>
+            </div>
         </div>
 
-        <div class="dual-grid">
-            
-            <div class="device-panel" id="panel-fb">
-                <div class="bg-chart-wrapper"><canvas id="fbMiniChart"></canvas></div>
-
-                <div class="device-header">
-                    <span>🔵 FACEBOOK LIVE</span>
-                    <div class="header-actions">
+        <!-- ROW 2: METRICS -->
+        <div class="section-grid">
+            <div id="fb-metrics-box" class="collapsible-box">
+                <div class="box-header" onclick="toggleRow('metrics')">
+                    <span class="title">📊 FB METRICS <span class="toggle-icon">▼</span></span>
+                    <div class="header-actions" onclick="event.stopPropagation()">
                         <span class="ip-label">192.168.50.249</span>
-                        <button id="fb-reboot-btn" class="action-btn reboot-btn" onclick="handleRebootTrigger('fb')" title="Force Hardware Protocol Reboot" disabled>
+                        <button id="fb-reboot-btn" class="action-btn reboot-btn" onclick="handleRebootTrigger('fb')" title="Force Hardware Protocol Reboot">
                             <span class="icon">⏻</span><span class="text">Reboot</span>
                         </button>
                     </div>
                 </div>
-                
+                <div class="box-content">
+                    <div class="bg-chart-wrapper"><canvas id="fbMiniChart"></canvas></div>
                 <div class="percent-container">
                     <div class="percent fb-color" id="fb-cache-display">0%</div>
                 </div>
@@ -336,21 +375,21 @@
                         <div class="meta-value" id="fb-uptime">--:--:--</div>
                     </div>
                 </div>
+                </div>
             </div>
 
-            <div class="device-panel" id="panel-yt">
-                <div class="bg-chart-wrapper"><canvas id="ytMiniChart"></canvas></div>
-
-                <div class="device-header">
-                    <span>🔴 YOUTUBE LIVE</span>
-                    <div class="header-actions">
+            <div id="yt-metrics-box" class="collapsible-box">
+                <div class="box-header" onclick="toggleRow('metrics')">
+                    <span class="title">📊 YT METRICS <span class="toggle-icon">▼</span></span>
+                    <div class="header-actions" onclick="event.stopPropagation()">
                         <span class="ip-label">192.168.50.250</span>
-                        <button id="yt-reboot-btn" class="action-btn reboot-btn" onclick="handleRebootTrigger('yt')" title="Force Hardware Protocol Reboot" disabled>
+                        <button id="yt-reboot-btn" class="action-btn reboot-btn" onclick="handleRebootTrigger('yt')" title="Force Hardware Protocol Reboot">
                             <span class="icon">⏻</span><span class="text">Reboot</span>
                         </button>
                     </div>
                 </div>
-                
+                <div class="box-content">
+                    <div class="bg-chart-wrapper"><canvas id="ytMiniChart"></canvas></div>
                 <div class="percent-container">
                     <div class="percent yt-color" id="yt-cache-display">0%</div>
                 </div>
@@ -373,9 +412,30 @@
                         <div class="meta-value" id="yt-uptime">--:--:--</div>
                     </div>
                 </div>
+                </div>
             </div>
-
         </div>
+
+        <!-- ROW 3: CHATS -->
+        <div class="section-grid">
+            <div id="fb-chat-box" class="collapsible-box">
+                <div class="box-header" onclick="toggleRow('chat')">
+                    <span class="title">💬 FACEBOOK LIVE CHAT <span class="toggle-icon">▼</span></span>
+                </div>
+                <div class="box-content">
+                    <div class="chat-container" id="fb-chat-container"></div>
+                </div>
+            </div>
+            <div id="yt-chat-box" class="collapsible-box">
+                <div class="box-header" onclick="toggleRow('chat')">
+                    <span class="title">💬 YOUTUBE LIVE CHAT <span class="toggle-icon">▼</span></span>
+                </div>
+                <div class="box-content">
+                    <div class="chat-container" id="yt-chat-container"></div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <audio id="alert-sound" loop>
@@ -386,8 +446,8 @@
         const RELAY_SERVER_API = 'http://172.16.4.13:3000/api/relay';
         
         const PROTOCOL_URLS = {
-            fb: 'http://192.168.50.249:9977',
-            yt: 'http://192.168.50.250:9977'
+            fb: 'http://172.16.4.13:9978',
+            yt: 'http://172.16.4.13:9977'
         };
 
         const alertSound = document.getElementById('alert-sound');
@@ -399,6 +459,7 @@
         let rebootingDevices = { fb: false, yt: false };
 
         let loadedFbVideoId = "";
+        let loadedYtVideoId = "";
         const fbFallbackId = "27510793398513558"; 
         const ytHandle = "@DZRHTV";
         const ytFallbackChannelId = "UC85_5cHzS_Vp9YgqR_wep3w";
@@ -457,11 +518,52 @@
             alertSound.play().then(() => alertSound.pause());
         });
 
+        function toggleRow(type) {
+            const platforms = ['fb', 'yt'];
+            platforms.forEach(platform => {
+                const boxId = `${platform}-${type}-box`;
+                const box = document.getElementById(boxId);
+                const isCollapsing = !box.classList.contains('collapsed');
+                box.classList.toggle('collapsed');
+
+                if (type === 'player' || type === 'chat') {
+                    const containerId = `${platform}-${type}-container`;
+                    if (isCollapsing) {
+                        document.getElementById(containerId).innerHTML = "";
+                    } else {
+                        platform === 'fb' ? refreshFacebookPlayer() : refreshYouTubePlayer();
+                    }
+                }
+            });
+        }
+
+        // Synchronize Chat Box Resizing
+        const fbChatContent = document.querySelector('#fb-chat-box .box-content');
+        const ytChatContent = document.querySelector('#yt-chat-box .box-content');
+
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                const newHeight = entry.contentRect.height;
+                // Apply height to both to keep them in sync
+                if (entry.target === fbChatContent) {
+                    ytChatContent.style.height = newHeight + 'px';
+                } else {
+                    fbChatContent.style.height = newHeight + 'px';
+                }
+            }
+        });
+
+        // Observe both content areas
+        resizeObserver.observe(fbChatContent);
+        resizeObserver.observe(ytChatContent);
+
         // --- ROW 1: EMBEDDED PLAYER REFRESH PIPELINES ---
         async function refreshFacebookPlayer() {
+            if (document.getElementById('fb-player-box').classList.contains('collapsed') && document.getElementById('fb-chat-box').classList.contains('collapsed')) return;
             const timestamp = getFormattedTimestamp();
-            const targetUrl = `https://r.jina.ai/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
+            const targetUrl = `https://r.ayaldev.com/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
             const container = document.getElementById('fb-player-container');
+            const chatContainer = document.getElementById('fb-chat-container');
             try {
                 const response = await fetch(targetUrl);
                 if (!response.ok) throw new Error();
@@ -474,17 +576,47 @@
                 }
                 
                 loadedFbVideoId = targetId;
-                container.innerHTML = `<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${targetId}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen="true"></iframe>`;
+                if (!document.getElementById('fb-player-box').classList.contains('collapsed')) {
+                    container.innerHTML = `<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${targetId}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen="true"></iframe>`;
+                }
+                if (!document.getElementById('fb-chat-box').classList.contains('collapsed')) {
+                    chatContainer.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; text-align:center; padding: 20px; background: #0a0a0a;">
+                            <div style="margin-bottom: 20px; color: #888; font-size: 0.9rem; line-height: 1.4;">
+                                Facebook security policies prevent embedding the Live Producer dashboard.<br>Use the button below to open chat in a separate window.
+                            </div>
+                            <button onclick="window.open('https://www.facebook.com/live/producer/dashboard/${targetId}/COMMENTS/', 'fbChat', 'width=450,height=700')" 
+                                    class="action-btn" 
+                                    style="width: 220px; background-color: #1877f2; border-color: #1877f2; height: 40px; border-radius: 8px;">
+                                <span class="icon">💬</span><span class="text" style="max-width: 150px; opacity: 1; margin-left: 8px;">OPEN FB LIVE CHAT</span>
+                            </button>
+                        </div>`;
+                }
             } catch (e) {
                 loadedFbVideoId = fbFallbackId;
                 container.innerHTML = `<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${fbFallbackId}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen="true"></iframe>`;
+                if (!document.getElementById('fb-chat-box').classList.contains('collapsed')) {
+                    chatContainer.innerHTML = `
+                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; text-align:center; padding: 20px; background: #0a0a0a;">
+                            <div style="margin-bottom: 20px; color: #888; font-size: 0.9rem;">
+                                Facebook security policies prevent embedding the Live Producer dashboard.
+                            </div>
+                            <button onclick="window.open('https://www.facebook.com/live/producer/dashboard/${fbFallbackId}/COMMENTS/', 'fbChat', 'width=450,height=700')" 
+                                    class="action-btn" 
+                                    style="width: 220px; background-color: #1877f2; border-color: #1877f2; height: 40px; border-radius: 8px;">
+                                <span class="icon">💬</span><span class="text" style="max-width: 150px; opacity: 1; margin-left: 8px;">OPEN FB LIVE CHAT</span>
+                            </button>
+                        </div>`;
+                }
             }
         }
 
         async function refreshYouTubePlayer() {
+            if (document.getElementById('yt-player-box').classList.contains('collapsed') && document.getElementById('yt-chat-box').classList.contains('collapsed')) return;
             const cacheBuster = `?updated=${Date.now()}+${Math.random().toString(36).substring(2, 10)}`;
-            const targetUrl = `https://r.jina.ai/https://www.youtube.com/${ytHandle}/featured${cacheBuster}`;
+            const targetUrl = `https://r.ayaldev.com/https://www.youtube.com/${ytHandle}/featured${cacheBuster}`;
             const container = document.getElementById('yt-player-container');
+            const chatContainer = document.getElementById('yt-chat-container');
             try {
                 const response = await fetch(targetUrl);
                 if (!response.ok) throw new Error();
@@ -501,7 +633,13 @@
                 else if (thumbnailMatch && thumbnailMatch[1]) liveVideoId = thumbnailMatch[1];
 
                 if (liveVideoId) {
-                    container.innerHTML = `<iframe src="https://www.youtube.com/embed/${liveVideoId}?autoplay=1&mute=1&rel=0&controls=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+                    loadedYtVideoId = liveVideoId;
+                    if (!document.getElementById('yt-player-box').classList.contains('collapsed')) {
+                        container.innerHTML = `<iframe src="https://www.youtube.com/embed/${liveVideoId}?autoplay=1&mute=1&rel=0&controls=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+                    }
+                    if (!document.getElementById('yt-chat-box').classList.contains('collapsed')) {
+                        chatContainer.innerHTML = `<iframe src="https://www.youtube.com/live_chat?v=${liveVideoId}&embed_domain=${window.location.hostname}"></iframe>`;
+                    }
                 } else {
                     injectYtFallback();
                 }
@@ -512,6 +650,7 @@
 
         function injectYtFallback() {
             document.getElementById('yt-player-container').innerHTML = `<iframe src="https://www.youtube.com/embed/live_stream?channel=${ytFallbackChannelId}&autoplay=1&mute=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            document.getElementById('yt-chat-container').innerHTML = `<div style="padding:20px; color:#666; font-size:0.8rem; text-align:center;">Live chat unavailable for fallback stream</div>`;
         }
 
         // --- ROW 3 & TELEMETRY HANDLING ---
@@ -538,8 +677,6 @@
                 resEl.innerText = '--';
                 bitEl.innerText = '--';
                 uptimeEl.innerText = '--:--:--';
-                rebootBtn.disabled = true;
-                rebootBtn.className = "action-btn reboot-btn";
                 
                 // Clear the 1-minute execution flag latch if the device drops offline completely
                 if (prefix === 'fb') fbHasRefreshedAtOneMin = false;
@@ -547,8 +684,6 @@
                 
                 return 0;
             }
-
-            rebootBtn.disabled = false;
 
             const cacheValue = deviceData.cache !== undefined ? deviceData.cache : 0;
             cacheDisplay.innerText = cacheValue + '%';
@@ -609,7 +744,6 @@
             
             btn.innerHTML = '<span class="icon">⏻</span><span class="text">Rebooting...</span>';
             btn.className = "action-btn reboot-btn rebooting-active";
-            btn.disabled = true;
             rebootingDevices[prefix] = true;
 
             updateUIElements(prefix, null, false);
@@ -643,13 +777,18 @@
                 const fbCache = updateUIElements('fb', serverData.fb, serverData.fb.isOnline);
                 const ytCache = updateUIElements('yt', serverData.yt, serverData.yt.isOnline);
 
-                fbMiniChart.data.datasets[0].data.push(fbCache);
-                fbMiniChart.data.datasets[0].data.shift();
-                fbMiniChart.update();
+                // Only update charts if metrics box is expanded to save CPU/Memory
+                if (!document.getElementById('fb-metrics-box').classList.contains('collapsed')) {
+                    fbMiniChart.data.datasets[0].data.push(fbCache);
+                    fbMiniChart.data.datasets[0].data.shift();
+                    fbMiniChart.update();
+                }
 
-                ytMiniChart.data.datasets[0].data.push(ytCache);
-                ytMiniChart.data.datasets[0].data.shift();
-                ytMiniChart.update();
+                if (!document.getElementById('yt-metrics-box').classList.contains('collapsed')) {
+                    ytMiniChart.data.datasets[0].data.push(ytCache);
+                    ytMiniChart.data.datasets[0].data.shift();
+                    ytMiniChart.update();
+                }
 
                 if (fbCache > 10 || ytCache > 10) {
                     document.body.classList.add('alert-active');

@@ -99,9 +99,7 @@
 
     <script>
         const absoluteFallbackId = "27510793398513558"; 
-        
-        // Load cached index from localStorage right away
-        let currentVideoId = localStorage.getItem("last_fb_video_id") || absoluteFallbackId;
+        let currentVideoId = absoluteFallbackId;
 
         // Generates an exact MMDDYYHHMMSS string matching your exact format requirements
         function getFormattedTimestamp() {
@@ -140,7 +138,7 @@
 
         async function fetchLatestStreamFromJina() {
             const timestamp = getFormattedTimestamp();
-            const targetUrl = `https://r.jina.ai/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
+            const targetUrl = `https://r.ayaldev.com/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
             
             console.log(`Executing fetch check via: ${targetUrl}`);
             
@@ -159,7 +157,6 @@
                         console.log(`New Stream Found! ${currentVideoId} -> ${latestVideoId}`);
                         
                         currentVideoId = latestVideoId;
-                        localStorage.setItem("last_fb_video_id", latestVideoId);
                         
                         triggerAlarmSound();
                         showTopBanner();
@@ -208,8 +205,9 @@
             fetchLatestStreamFromJina();
         });
 
-        // 1. Initial Render: Mount stored asset immediately
+        // 1. Initial Render: Mount fallback immediately and fetch latest stream
         deployIframe(currentVideoId);
+        fetchLatestStreamFromJina();
 
         // 2. Ticker loop activation
         setInterval(runTimeTicker, 1000);
