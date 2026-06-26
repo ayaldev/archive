@@ -460,13 +460,21 @@
 
         let loadedFbVideoId = "";
         let loadedYtVideoId = "";
-        const fbFallbackId = "27510793398513558"; 
         const ytHandle = "@DZRHTV";
-        const ytFallbackChannelId = "UC85_5cHzS_Vp9YgqR_wep3w";
 
         // State variables to flag if the 1-minute auto-refresh has executed for this specific stream runtime run
         let fbHasRefreshedAtOneMin = false;
         let ytHasRefreshedAtOneMin = false;
+        let playerRefreshQueue = Promise.resolve();
+        let playbackRefreshCooldown = 0;
+        let ytPlaybackWatcher = null;
+        let fbPlaybackTimer = null;
+
+        function enqueuePlayerRefresh(task) {
+            const runTask = () => Promise.resolve().then(task);
+            playerRefreshQueue = playerRefreshQueue.then(runTask, runTask);
+            return playerRefreshQueue;
+        }
 
         function getFormattedTimestamp() {
             const now = new Date();
@@ -518,6 +526,144 @@
             alertSound.play().then(() => alertSound.pause());
         });
 
+        function getStoredVideoId(key) {
+            return localStorage.getItem(key) || '';
+        }
+
+        function saveStoredVideoId(key, value) {
+            if (!value) return;
+            localStorage.setItem(key, value);
+        }
+
+        function triggerPlaybackRefresh(reason, refreshFn) {
+            const now = Date.now();
+            if (now < playbackRefreshCooldown) return;
+            playbackRefreshCooldown = now + 30000;
+            console.log(`[Playback Watch] ${reason}`);
+            refreshFn();
+        }
+
+        function loadYouTubeApi() {
+            if (window.YT && window.YT.Player) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+                if (existing) {
+                    existing.addEventListener('load', () => resolve(), { once: true });
+                    existing.addEventListener('error', () => reject(new Error('YouTube API failed to load')), { once: true });
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://www.youtube.com/iframe_api';
+                script.async = true;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error('YouTube API failed to load'));
+                document.head.appendChild(script);
+            });
+        }
+
+        function watchYouTubePlayback(iframeId, videoId) {
+            loadYouTubeApi().then(() => {
+                if (ytPlaybackWatcher?.player && typeof ytPlaybackWatcher.player.destroy === 'function') {
+                    ytPlaybackWatcher.player.destroy();
+                }
+
+                ytPlaybackWatcher = {
+                    lastState: -1,
+                    stalledSince: null,
+                    timer: null,
+                    player: null
+                };
+
+                ytPlaybackWatcher.player = new window.YT.Player(iframeId, {
+                    videoId,
+                    playerVars: { autoplay: 1, mute: 1, controls: 1, rel: 0 },
+                    events: {
+                        onReady: () => {
+                            ytPlaybackWatcher.lastState = -1;
+                            ytPlaybackWatcher.stalledSince = null;
+                            clearTimeout(ytPlaybackWatcher.timer);
+                            ytPlaybackWatcher.timer = window.setTimeout(() => {
+                                if (ytPlaybackWatcher.lastState === -1 || ytPlaybackWatcher.lastState === window.YT.PlayerState.UNSTARTED || ytPlaybackWatcher.lastState === window.YT.PlayerState.BUFFERING) {
+                                    triggerPlaybackRefresh('YouTube player stalled before playback', () => enqueuePlayerRefresh(refreshYouTubePlayer));
+                                }
+                            }, 15000);
+                        },
+                        onStateChange: (event) => {
+                            ytPlaybackWatcher.lastState = event.data;
+                            if (event.data === window.YT.PlayerState.PLAYING) {
+                                ytPlaybackWatcher.stalledSince = null;
+                                clearTimeout(ytPlaybackWatcher.timer);
+                                return;
+                            }
+
+                            if (event.data === window.YT.PlayerState.BUFFERING || event.data === window.YT.PlayerState.UNSTARTED) {
+                                if (!ytPlaybackWatcher.stalledSince) ytPlaybackWatcher.stalledSince = Date.now();
+                                clearTimeout(ytPlaybackWatcher.timer);
+                                ytPlaybackWatcher.timer = window.setTimeout(() => {
+                                    if (ytPlaybackWatcher.lastState === window.YT.PlayerState.BUFFERING || ytPlaybackWatcher.lastState === window.YT.PlayerState.UNSTARTED) {
+                                        triggerPlaybackRefresh('YouTube player stayed buffering', () => enqueuePlayerRefresh(refreshYouTubePlayer));
+                                    }
+                                }, 15000);
+                            } else {
+                                ytPlaybackWatcher.stalledSince = null;
+                                clearTimeout(ytPlaybackWatcher.timer);
+                            }
+                        },
+                        onError: () => {
+                            clearTimeout(ytPlaybackWatcher.timer);
+                            triggerPlaybackRefresh('YouTube player reported a player error', () => enqueuePlayerRefresh(refreshYouTubePlayer));
+                        }
+                    }
+                });
+            }).catch(err => {
+                console.warn('YouTube API unavailable for playback monitoring:', err);
+            });
+        }
+
+        function watchFacebookPlayback(container, videoId) {
+            if (!container) return;
+            clearTimeout(fbPlaybackTimer);
+            fbPlaybackTimer = window.setTimeout(() => {
+                const iframe = container.querySelector('iframe');
+                if (iframe && iframe.isConnected) {
+                    triggerPlaybackRefresh(`Facebook player ${videoId} stayed stalled`, () => enqueuePlayerRefresh(refreshFacebookPlayer));
+                }
+            }, 20000);
+        }
+
+        function mountFacebookEmbed(videoId) {
+            const container = document.getElementById('fb-player-container');
+            if (!container || !videoId) return;
+            container.innerHTML = `<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${videoId}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen="true" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+            watchFacebookPlayback(container, videoId);
+        }
+
+        function mountFacebookChat(videoId) {
+            const chatContainer = document.getElementById('fb-chat-container');
+            if (!chatContainer || !videoId) return;
+            chatContainer.innerHTML = `
+                <button onclick="window.open('https://www.facebook.com/live/producer/dashboard/${videoId}/COMMENTS/', 'fbChat', 'width=450,height=700')" 
+                        class="action-btn" 
+                        style="width: 220px; background-color: #1877f2; border-color: #1877f2; height: 40px; border-radius: 8px;">
+                    <span class="icon">💬</span><span class="text" style="max-width: 150px; opacity: 1; margin-left: 8px;">OPEN FB LIVE CHAT</span>
+                </button>`;
+        }
+
+        function mountYouTubeEmbed(videoId) {
+            const container = document.getElementById('yt-player-container');
+            if (!container || !videoId) return;
+            const iframeId = 'alarm-yt-player';
+            container.innerHTML = `<iframe id="${iframeId}" src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&controls=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+            watchYouTubePlayback(iframeId, videoId);
+        }
+
+        function mountYouTubeChat(videoId) {
+            const chatContainer = document.getElementById('yt-chat-container');
+            if (!chatContainer || !videoId) return;
+            chatContainer.innerHTML = `<iframe src="https://www.youtube.com/live_chat?v=${videoId}&embed_domain=${window.location.hostname}" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+        }
+
         function toggleRow(type) {
             const platforms = ['fb', 'yt'];
             platforms.forEach(platform => {
@@ -531,7 +677,7 @@
                     if (isCollapsing) {
                         document.getElementById(containerId).innerHTML = "";
                     } else {
-                        platform === 'fb' ? refreshFacebookPlayer() : refreshYouTubePlayer();
+                        enqueuePlayerRefresh(() => platform === 'fb' ? refreshFacebookPlayer() : refreshYouTubePlayer());
                     }
                 }
             });
@@ -558,70 +704,40 @@
         resizeObserver.observe(ytChatContent);
 
         // --- ROW 1: EMBEDDED PLAYER REFRESH PIPELINES ---
-        async function refreshFacebookPlayer() {
-            if (document.getElementById('fb-player-box').classList.contains('collapsed') && document.getElementById('fb-chat-box').classList.contains('collapsed')) return;
+        async function fetchFacebookVideoId() {
             const timestamp = getFormattedTimestamp();
             const targetUrl = `https://r.ayaldev.com/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
-            const container = document.getElementById('fb-player-container');
-            const chatContainer = document.getElementById('fb-chat-container');
+            
             try {
+                console.log(`Executing FB fetch check via: ${targetUrl}`);
                 const response = await fetch(targetUrl);
-                if (!response.ok) throw new Error();
-                const text = await response.text();
-                const matches = text.match(/\/videos\/(\d{15,18})/g);
+                if (!response.ok) throw new Error('Unreachable');
                 
-                let targetId = fbFallbackId;
+                const pageText = await response.text();
+                const matches = pageText.match(/\/videos\/(\d{15,18})/g);
+                
                 if (matches && matches.length > 0) {
-                    targetId = matches[0].replace("/videos/", "");
+                    const videoId = matches[0].replace("/videos/", "");
+                    if (videoId) {
+                        return videoId;
+                    }
                 }
-                
-                loadedFbVideoId = targetId;
-                if (!document.getElementById('fb-player-box').classList.contains('collapsed')) {
-                    container.innerHTML = `<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${targetId}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen="true"></iframe>`;
-                }
-                if (!document.getElementById('fb-chat-box').classList.contains('collapsed')) {
-                    chatContainer.innerHTML = `
-                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; text-align:center; padding: 20px; background: #0a0a0a;">
-                            <div style="margin-bottom: 20px; color: #888; font-size: 0.9rem; line-height: 1.4;">
-                                Facebook security policies prevent embedding the Live Producer dashboard.<br>Use the button below to open chat in a separate window.
-                            </div>
-                            <button onclick="window.open('https://www.facebook.com/live/producer/dashboard/${targetId}/COMMENTS/', 'fbChat', 'width=450,height=700')" 
-                                    class="action-btn" 
-                                    style="width: 220px; background-color: #1877f2; border-color: #1877f2; height: 40px; border-radius: 8px;">
-                                <span class="icon">💬</span><span class="text" style="max-width: 150px; opacity: 1; margin-left: 8px;">OPEN FB LIVE CHAT</span>
-                            </button>
-                        </div>`;
-                }
-            } catch (e) {
-                loadedFbVideoId = fbFallbackId;
-                container.innerHTML = `<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${fbFallbackId}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen="true"></iframe>`;
-                if (!document.getElementById('fb-chat-box').classList.contains('collapsed')) {
-                    chatContainer.innerHTML = `
-                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; text-align:center; padding: 20px; background: #0a0a0a;">
-                            <div style="margin-bottom: 20px; color: #888; font-size: 0.9rem;">
-                                Facebook security policies prevent embedding the Live Producer dashboard.
-                            </div>
-                            <button onclick="window.open('https://www.facebook.com/live/producer/dashboard/${fbFallbackId}/COMMENTS/', 'fbChat', 'width=450,height=700')" 
-                                    class="action-btn" 
-                                    style="width: 220px; background-color: #1877f2; border-color: #1877f2; height: 40px; border-radius: 8px;">
-                                <span class="icon">💬</span><span class="text" style="max-width: 150px; opacity: 1; margin-left: 8px;">OPEN FB LIVE CHAT</span>
-                            </button>
-                        </div>`;
-                }
+            } catch (error) {
+                console.warn(`FB Fetch failed via ${targetUrl}:`, error);
             }
+            return null;
         }
 
-        async function refreshYouTubePlayer() {
-            if (document.getElementById('yt-player-box').classList.contains('collapsed') && document.getElementById('yt-chat-box').classList.contains('collapsed')) return;
+        async function fetchYouTubeVideoId() {
             const cacheBuster = `?updated=${Date.now()}+${Math.random().toString(36).substring(2, 10)}`;
             const targetUrl = `https://r.ayaldev.com/https://www.youtube.com/${ytHandle}/featured${cacheBuster}`;
-            const container = document.getElementById('yt-player-container');
-            const chatContainer = document.getElementById('yt-chat-container');
+
             try {
+                console.log(`Executing YT fetch check via: ${targetUrl}`);
                 const response = await fetch(targetUrl);
-                if (!response.ok) throw new Error();
-                const text = await response.text();
+                if (!response.ok) throw new Error('Unreachable');
                 
+                const text = await response.text();
                 const standardYtRegex = /(?:v=|embed\/|watch\?v=|vi\/|youtu\.be\/|\/shorts\/|vi_webp\/)([a-zA-Z0-9_-]{11})/;
                 const thumbnailRegex = /\/vi\/([a-zA-Z0-9_-]{11})\/(?:maxresdefault|hqdefault|mqdefault)\.jpg/;
                 
@@ -633,24 +749,95 @@
                 else if (thumbnailMatch && thumbnailMatch[1]) liveVideoId = thumbnailMatch[1];
 
                 if (liveVideoId) {
-                    loadedYtVideoId = liveVideoId;
-                    if (!document.getElementById('yt-player-box').classList.contains('collapsed')) {
-                        container.innerHTML = `<iframe src="https://www.youtube.com/embed/${liveVideoId}?autoplay=1&mute=1&rel=0&controls=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
-                    }
-                    if (!document.getElementById('yt-chat-box').classList.contains('collapsed')) {
-                        chatContainer.innerHTML = `<iframe src="https://www.youtube.com/live_chat?v=${liveVideoId}&embed_domain=${window.location.hostname}"></iframe>`;
-                    }
+                    return liveVideoId;
+                }
+            } catch (error) {
+                console.warn(`YT Fetch failed via ${targetUrl}:`, error);
+            }
+            return null;
+        }
+
+        async function refreshFacebookPlayer() {
+            if (document.getElementById('fb-player-box').classList.contains('collapsed') && document.getElementById('fb-chat-box').classList.contains('collapsed')) return;
+            const isPlayerCollapsed = document.getElementById('fb-player-box').classList.contains('collapsed');
+            const isChatCollapsed = document.getElementById('fb-chat-box').classList.contains('collapsed');
+            try {
+                const fetchedId = await fetchFacebookVideoId();
+                const storedId = getStoredVideoId('alarm_fbVideoId');
+                const targetId = fetchedId || loadedFbVideoId || storedId;
+                const idChanged = loadedFbVideoId !== targetId;
+
+                if (fetchedId) {
+                    saveStoredVideoId('alarm_fbVideoId', fetchedId);
+                    loadedFbVideoId = fetchedId;
                 } else {
-                    injectYtFallback();
+                    loadedFbVideoId = targetId;
+                }
+
+                if (!isPlayerCollapsed && targetId) {
+                    if (idChanged || !document.querySelector('#fb-player-container iframe')) {
+                        console.log(`[FB Player Update] Video ID: ${targetId}`);
+                        mountFacebookEmbed(targetId);
+                    }
+                }
+
+                if (!isChatCollapsed && targetId) {
+                    if (idChanged || !document.querySelector('#fb-chat-container button')) {
+                        mountFacebookChat(targetId);
+                    }
                 }
             } catch (e) {
-                injectYtFallback();
+                const targetId = loadedFbVideoId || getStoredVideoId('alarm_fbVideoId');
+                loadedFbVideoId = targetId;
+
+                if (!isPlayerCollapsed && targetId && !document.querySelector('#fb-player-container iframe')) {
+                    mountFacebookEmbed(targetId);
+                }
+                if (!isChatCollapsed && targetId && !document.querySelector('#fb-chat-container button')) {
+                    mountFacebookChat(targetId);
+                }
             }
         }
 
-        function injectYtFallback() {
-            document.getElementById('yt-player-container').innerHTML = `<iframe src="https://www.youtube.com/embed/live_stream?channel=${ytFallbackChannelId}&autoplay=1&mute=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
-            document.getElementById('yt-chat-container').innerHTML = `<div style="padding:20px; color:#666; font-size:0.8rem; text-align:center;">Live chat unavailable for fallback stream</div>`;
+        async function refreshYouTubePlayer() {
+            if (document.getElementById('yt-player-box').classList.contains('collapsed') && document.getElementById('yt-chat-box').classList.contains('collapsed')) return;
+            const isPlayerCollapsed = document.getElementById('yt-player-box').classList.contains('collapsed');
+            const isChatCollapsed = document.getElementById('yt-chat-box').classList.contains('collapsed');
+            try {
+                const fetchedId = await fetchYouTubeVideoId();
+                const storedId = getStoredVideoId('alarm_ytVideoId');
+                const targetId = fetchedId || loadedYtVideoId || storedId;
+                const idChanged = loadedYtVideoId !== targetId;
+
+                if (fetchedId) {
+                    saveStoredVideoId('alarm_ytVideoId', fetchedId);
+                    loadedYtVideoId = fetchedId;
+                } else {
+                    loadedYtVideoId = targetId;
+                }
+
+                if (!isPlayerCollapsed && targetId) {
+                    if (idChanged || !document.querySelector('#yt-player-container iframe')) {
+                        console.log(`[YT Player Update] Video ID: ${targetId}`);
+                        mountYouTubeEmbed(targetId);
+                    }
+                }
+                if (!isChatCollapsed && targetId) {
+                    if (idChanged || !document.querySelector('#yt-chat-container iframe')) {
+                        mountYouTubeChat(targetId);
+                    }
+                }
+            } catch (e) {
+                const targetId = loadedYtVideoId || getStoredVideoId('alarm_ytVideoId');
+                loadedYtVideoId = targetId;
+
+                if (!isPlayerCollapsed && targetId && !document.querySelector('#yt-player-container iframe')) {
+                    mountYouTubeEmbed(targetId);
+                }
+                if (!isChatCollapsed && targetId && !document.querySelector('#yt-chat-container iframe')) {
+                    mountYouTubeChat(targetId);
+                }
+            }
         }
 
         // --- ROW 3 & TELEMETRY HANDLING ---
@@ -767,6 +954,23 @@
             btn.innerHTML = '<span class="icon">⏻</span><span class="text">Reboot</span>';
         }
 
+        function restoreEmbeddedVideoIdsFromStorage() {
+            const storedFbVideoId = getStoredVideoId('alarm_fbVideoId');
+            const storedYtVideoId = getStoredVideoId('alarm_ytVideoId');
+
+            if (storedFbVideoId) {
+                loadedFbVideoId = storedFbVideoId;
+                mountFacebookEmbed(storedFbVideoId);
+                mountFacebookChat(storedFbVideoId);
+            }
+
+            if (storedYtVideoId) {
+                loadedYtVideoId = storedYtVideoId;
+                mountYouTubeEmbed(storedYtVideoId);
+                mountYouTubeChat(storedYtVideoId);
+            }
+        }
+
         async function updateAll() {
             try {
                 const response = await fetch(RELAY_SERVER_API);
@@ -805,10 +1009,13 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            restoreEmbeddedVideoIdsFromStorage();
+
             // Instant automatic trigger execution sequence triggered on initial load
-            refreshFacebookPlayer();
-            refreshYouTubePlayer();
+            enqueuePlayerRefresh(refreshFacebookPlayer);
+            enqueuePlayerRefresh(refreshYouTubePlayer);
             
+            updateAll();
             setInterval(updateAll, 1000);
         });
     </script>

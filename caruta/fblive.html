@@ -98,8 +98,59 @@
     </button>
 
     <script>
-        const absoluteFallbackId = "27510793398513558"; 
-        let currentVideoId = absoluteFallbackId;
+        let currentVideoId = "";
+        let playbackRefreshCooldown = 0;
+        let facebookPlaybackTimer = null;
+
+        function triggerPlaybackRefresh(reason, refreshFn) {
+            const now = Date.now();
+            if (now < playbackRefreshCooldown) return;
+            playbackRefreshCooldown = now + 30000;
+            console.log(`[Playback Watch] ${reason}`);
+            refreshFn();
+        }
+
+        function loadFacebookSdk() {
+            if (window.FB) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const existing = document.querySelector('script[src*="connect.facebook.net"]');
+                if (existing) {
+                    existing.addEventListener('load', () => resolve(), { once: true });
+                    existing.addEventListener('error', () => reject(new Error('Facebook SDK failed to load')), { once: true });
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v18.0';
+                script.async = true;
+                script.defer = true;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error('Facebook SDK failed to load'));
+                document.head.appendChild(script);
+            });
+        }
+
+        function watchFacebookPlayback(container, videoId) {
+            if (!container) return;
+            clearTimeout(facebookPlaybackTimer);
+            facebookPlaybackTimer = window.setTimeout(() => {
+                const iframe = container.querySelector('iframe');
+                if (iframe && iframe.isConnected) {
+                    triggerPlaybackRefresh(`Facebook embed ${videoId} stayed stalled`, () => fetchLatestStreamFromJina());
+                }
+            }, 20000);
+
+            loadFacebookSdk().catch(err => console.warn('Facebook SDK unavailable for playback monitoring:', err));
+        }
+
+        function getStoredVideoId(key) {
+            return localStorage.getItem(key) || "";
+        }
+
+        function saveStoredVideoId(key, value) {
+            if (!value) return;
+            localStorage.setItem(key, value);
+        }
 
         // Generates an exact MMDDYYHHMMSS string matching your exact format requirements
         function getFormattedTimestamp() {
@@ -136,34 +187,46 @@
             }
         }
 
-        async function fetchLatestStreamFromJina() {
+        async function fetchFacebookVideoId() {
             const timestamp = getFormattedTimestamp();
             const targetUrl = `https://r.ayaldev.com/https://www.facebook.com/dzrhnews/live_videos?update=${timestamp}`;
             
-            console.log(`Executing fetch check via: ${targetUrl}`);
-            
             try {
+                console.log(`Executing fetch check via: ${targetUrl}`);
                 const response = await fetch(targetUrl);
-
-                if (!response.ok) throw new Error(`Jina response failed with status: ${response.status}`);
+                if (!response.ok) throw new Error('Unreachable');
                 
                 const pageText = await response.text();
                 const matches = pageText.match(/\/videos\/(\d{15,18})/g);
                 
                 if (matches && matches.length > 0) {
-                    const latestVideoId = matches[0].replace("/videos/", "");
-                    
-                    if (latestVideoId && latestVideoId !== currentVideoId) {
+                    const videoId = matches[0].replace("/videos/", "");
+                    if (videoId) {
+                        return videoId;
+                    }
+                }
+            } catch (error) {
+                console.warn(`Fetch failed via ${targetUrl}:`, error);
+            }
+            return null;
+        }
+
+        async function fetchLatestStreamFromJina() {
+            try {
+                const latestVideoId = await fetchFacebookVideoId();
+                if (latestVideoId) {
+                    if (latestVideoId !== currentVideoId) {
                         console.log(`New Stream Found! ${currentVideoId} -> ${latestVideoId}`);
-                        
                         currentVideoId = latestVideoId;
-                        
+                        saveStoredVideoId('fblive_videoId', latestVideoId);
                         triggerAlarmSound();
                         showTopBanner();
                         deployIframe(latestVideoId);
                     } else {
                         console.log("Stream check completed: No new stream ID found.");
                     }
+                } else {
+                    console.log("Stream check completed: No live stream active.");
                 }
             } catch (error) {
                 console.warn("Jina fetch execution failed:", error);
@@ -172,15 +235,21 @@
 
         function deployIframe(id) {
             const container = document.getElementById('fb-live-wrapper');
+            if (!id) {
+                container.innerHTML = '';
+                return;
+            }
             container.innerHTML = `
                 <iframe 
                     src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Fdzrhnews%2Fvideos%2F${id}%2F&show_text=false&width=560&t=0&autoplay=true&mute=true" 
                     scrolling="no" 
                     frameborder="0" 
                     allowfullscreen="true" 
+                    referrerpolicy="strict-origin-when-cross-origin"
                     allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share">
                 </iframe>
             `;
+            watchFacebookPlayback(container, id);
         }
 
         function showTopBanner() {
@@ -194,8 +263,8 @@
             const minutes = now.getMinutes();
             const seconds = now.getSeconds();
 
-            // Check precisely at the 5th and 35th minute mark
-            if ((minutes === 5 || minutes === 35) && seconds === 0) {
+            // Check precisely every 5 minutes
+            if (minutes % 5 === 0 && seconds === 0) {
                 fetchLatestStreamFromJina();
             }
         }
@@ -205,8 +274,11 @@
             fetchLatestStreamFromJina();
         });
 
-        // 1. Initial Render: Mount fallback immediately and fetch latest stream
-        deployIframe(currentVideoId);
+        // 1. Initial Render: Load stored ID first if present then fetch latest stream
+        currentVideoId = getStoredVideoId('fblive_videoId');
+        if (currentVideoId) {
+            deployIframe(currentVideoId);
+        }
         fetchLatestStreamFromJina();
 
         // 2. Ticker loop activation

@@ -171,14 +171,129 @@
     <script>
         // Data model containing explicit target layout configurations
         const CHANNELS = [
-            { id: "dzrh", name: "DZRH TV", handle: "@DZRHTV", fallbackChannelId: "UC85_5cHzS_Vp9YgqR_wep3w" },
-            { id: "love", name: "Love Radio", handle: "@Loveradiomanila", fallbackChannelId: "UC8_v3mS8ZJvjYg-8U9VwS7A" },
-            { id: "yes", name: "Yes FM", handle: "@yesfmmanila1011", fallbackChannelId: "UCzD_S_zE6K_1R0C2w2S7jHA" },
-            { id: "easyrock", name: "Easy Rock", handle: "@EasyRockManila", fallbackChannelId: "UC37Xn8mN6H8CgC66P2R_1Ag" }
+            { id: "dzrh", name: "DZRH TV", handle: "@DZRHTV", loadedVideoId: "" },
+            { id: "love", name: "Love Radio", handle: "@Loveradiomanila", loadedVideoId: "" },
+            { id: "yes", name: "Yes FM", handle: "@yesfmmanila1011", loadedVideoId: "" },
+            { id: "easyrock", name: "Easy Rock", handle: "@EasyRockManila", loadedVideoId: "" }
         ];
+
+        function getStoredVideoId(key) {
+            return localStorage.getItem(key) || "";
+        }
+
+        function saveStoredVideoId(key, value) {
+            if (!value) return;
+            localStorage.setItem(key, value);
+        }
+
+        function mountYouTubeEmbed(channel, videoId) {
+            const container = document.getElementById(`player-${channel.id}`);
+            if (!container || !videoId) return;
+            container.innerHTML = '';
+            const iframeId = `yt-iframe-${channel.id}`;
+            const iframe = document.createElement('iframe');
+            iframe.id = iframeId;
+            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&controls=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+            iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+            iframe.allowFullscreen = true;
+            iframe.referrerPolicy = "strict-origin-when-cross-origin";
+            container.appendChild(iframe);
+            watchYouTubePlayback(channel.id, iframeId, videoId);
+        }
 
         // Flag to prevent double execution within the exact same target minute loop
         let hasExecutedThisMinute = false;
+        let channelRefreshChain = Promise.resolve();
+        let playbackRefreshCooldown = 0;
+        const ytPlayerWatchers = {};
+
+        function triggerPlaybackRefresh(reason, refreshFn) {
+            const now = Date.now();
+            if (now < playbackRefreshCooldown) return;
+            playbackRefreshCooldown = now + 30000;
+            console.log(`[Playback Watch] ${reason}`);
+            refreshFn();
+        }
+
+        function loadYouTubeApi() {
+            if (window.YT && window.YT.Player) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+                if (existing) {
+                    existing.addEventListener('load', () => resolve(), { once: true });
+                    existing.addEventListener('error', () => reject(new Error('YouTube API failed to load')), { once: true });
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://www.youtube.com/iframe_api';
+                script.async = true;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error('YouTube API failed to load'));
+                document.head.appendChild(script);
+            });
+        }
+
+        function watchYouTubePlayback(channelId, iframeId, videoId) {
+            loadYouTubeApi().then(() => {
+                if (ytPlayerWatchers[channelId]?.player && typeof ytPlayerWatchers[channelId].player.destroy === 'function') {
+                    ytPlayerWatchers[channelId].player.destroy();
+                }
+
+                const watcher = {
+                    lastState: -1,
+                    stalledSince: null,
+                    timer: null,
+                    player: null
+                };
+
+                watcher.player = new window.YT.Player(iframeId, {
+                    videoId,
+                    playerVars: { autoplay: 1, mute: 1, controls: 1, rel: 0 },
+                    events: {
+                        onReady: () => {
+                            watcher.lastState = -1;
+                            watcher.stalledSince = null;
+                            clearTimeout(watcher.timer);
+                            watcher.timer = window.setTimeout(() => {
+                                if (watcher.lastState === -1 || watcher.lastState === window.YT.PlayerState.UNSTARTED || watcher.lastState === window.YT.PlayerState.BUFFERING) {
+                                    triggerPlaybackRefresh(`YouTube channel ${channelId} stalled before playback`, () => refreshFeeds());
+                                }
+                            }, 15000);
+                        },
+                        onStateChange: (event) => {
+                            watcher.lastState = event.data;
+                            if (event.data === window.YT.PlayerState.PLAYING) {
+                                watcher.stalledSince = null;
+                                clearTimeout(watcher.timer);
+                                return;
+                            }
+
+                            if (event.data === window.YT.PlayerState.BUFFERING || event.data === window.YT.PlayerState.UNSTARTED) {
+                                if (!watcher.stalledSince) watcher.stalledSince = Date.now();
+                                clearTimeout(watcher.timer);
+                                watcher.timer = window.setTimeout(() => {
+                                    if (watcher.lastState === window.YT.PlayerState.BUFFERING || watcher.lastState === window.YT.PlayerState.UNSTARTED) {
+                                        triggerPlaybackRefresh(`YouTube channel ${channelId} stayed buffering`, () => refreshFeeds());
+                                    }
+                                }, 15000);
+                            } else {
+                                watcher.stalledSince = null;
+                                clearTimeout(watcher.timer);
+                            }
+                        },
+                        onError: () => {
+                            clearTimeout(watcher.timer);
+                            triggerPlaybackRefresh(`YouTube channel ${channelId} reported a player error`, () => refreshFeeds());
+                        }
+                    }
+                });
+
+                ytPlayerWatchers[channelId] = watcher;
+            }).catch(err => {
+                console.warn('YouTube API unavailable for playback monitoring:', err);
+            });
+        }
 
         // Core compilation generator mapping monitoring channels out to viewcells
         function initMatrix() {
@@ -191,20 +306,30 @@
                 cell.id = `cell-${channel.id}`;
 
                 cell.innerHTML = `
-                    <div class="cell-loader" id="loader-${channel.id}">
-                        <div class="spinner"></div>
-                        <div>SYNCING FEED</div>
-                    </div>
                     <div class="video-container" id="player-${channel.id}"></div>
                 `;
                 grid.appendChild(cell);
 
-                // Fire dynamic parse worker loops concurrently
-                processChannelFeed(channel);
+                const storedId = getStoredVideoId(`ytlive_${channel.id}_videoId`);
+                if (storedId) {
+                    channel.loadedVideoId = storedId;
+                    mountYouTubeEmbed(channel, storedId);
+                }
             });
+
+            refreshFeeds();
         }
 
-        async function processChannelFeed(channel) {
+        function refreshFeeds() {
+            console.log('[Refreshing feeds...] Checking if video IDs have changed');
+            channelRefreshChain = CHANNELS.reduce((chain, channel) => {
+                return chain.then(() => processChannelFeed(channel));
+            }, channelRefreshChain);
+
+            return channelRefreshChain;
+        }
+
+        async function fetchYouTubeVideoId(channel) {
             // Generate distinct, individual anti-cache signatures per container process loop
             const timestamp = Date.now();
             const randomString = Math.random().toString(36).substring(2, 15);
@@ -214,8 +339,9 @@
             const jinaApiEndpoint = `https://r.ayaldev.com/${targetUrl}`;
 
             try {
+                console.log(`Checking YouTube feed for ${channel.name} via: ${jinaApiEndpoint}`);
                 const response = await fetch(jinaApiEndpoint);
-                if (!response.ok) throw new Error('Jina endpoint unreachable');
+                if (!response.ok) throw new Error('Unreachable');
 
                 const markdownText = await response.text();
 
@@ -233,40 +359,42 @@
                     liveVideoId = thumbnailMatch[1];
                 }
 
-                // Inject extracted active stream video, or route to fallback
+                return liveVideoId;
+            } catch (err) {
+                console.warn(`Fetch failed for YouTube channel ${channel.name}:`, err);
+                return null;
+            }
+        }
+
+        async function processChannelFeed(channel) {
+            try {
+                const liveVideoId = await fetchYouTubeVideoId(channel);
                 if (liveVideoId) {
-                    injectIframe(channel.id, `https://www.youtube.com/embed/${liveVideoId}?autoplay=1&mute=1&rel=0&controls=1`);
+                    updateChannelPlayer(channel, liveVideoId);
                 } else {
-                    injectFallback(channel);
+                    console.warn(`No video ID found for ${channel.name}. Skipping embed.`);
                 }
             } catch (err) {
-                console.warn(`Parsing missed for ${channel.name}, applying live API fallback rule:`, err);
-                injectFallback(channel);
+                console.warn(`Parsing failed for ${channel.name}:`, err);
             }
         }
 
-        function injectIframe(channelId, srcUrl) {
-            const container = document.getElementById(`player-${channelId}`);
-            const loader = document.getElementById(`loader-${channelId}`);
+        function updateChannelPlayer(channel, videoId) {
+            const container = document.getElementById(`player-${channel.id}`);
 
-            const iframe = document.createElement('iframe');
-            iframe.src = srcUrl;
-            iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
-            iframe.allowFullscreen = true;
+            if (!videoId || !container) return;
 
-            container.appendChild(iframe);
+            const idChanged = channel.loadedVideoId !== videoId;
+            const hasIframe = container.querySelector('iframe');
 
-            // Transition loader out cleanly when frame is added
-            if (loader) {
-                loader.style.opacity = '0';
-                setTimeout(() => loader.remove(), 400);
+            if (idChanged || !hasIframe) {
+                console.log(`[Player Update] Channel: ${channel.name}, Video ID: ${channel.loadedVideoId} -> ${videoId}`);
+                channel.loadedVideoId = videoId;
+                saveStoredVideoId(`ytlive_${channel.id}_videoId`, videoId);
+                mountYouTubeEmbed(channel, videoId);
+            } else {
+                console.log(`[Player Retained] Channel: ${channel.name}, Video ID is unchanged: ${videoId}`);
             }
-        }
-
-        function injectFallback(channel) {
-            // Native platform parameters that lock onto live broadcasts automatically via internal API indices
-            const nativeLiveUrl = `https://www.youtube.com/embed/live_stream?channel=${channel.fallbackChannelId}&autoplay=1&mute=1`;
-            injectIframe(channel.id, nativeLiveUrl);
         }
 
         // Clock Monitoring System - Checks times every second for automated cron loops
@@ -275,12 +403,12 @@
                 const currentClock = new Date();
                 const currentMinutes = currentClock.getMinutes();
 
-                // Check explicitly for target minute marks (:05 and :35)
-                if (currentMinutes === 5 || currentMinutes === 35) {
+                // Check explicitly for every 5 minutes (0, 5, 10, etc.)
+                if (currentMinutes % 5 === 0) {
                     if (!hasExecutedThisMinute) {
                         console.log(`[Scheduled Clock Sync Triggered] Syncing matrix streams at minute mark: ${currentMinutes}`);
                         hasExecutedThisMinute = true;
-                        initMatrix(); // Refresh the monitoring matrix feeds
+                        refreshFeeds(); // Refresh the monitoring matrix feeds
                     }
                 } else {
                     // Reset safety latch once the clock advances off the schedule boundary marks
@@ -298,7 +426,7 @@
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
                 console.log('[Manual User Sync Overrule Handled]');
-                initMatrix();
+                refreshFeeds();
             });
         }
     </script>
